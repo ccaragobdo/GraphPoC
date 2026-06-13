@@ -1,15 +1,16 @@
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap");
 
 :root {
-  --bg: #f4f1e8;
-  --ink: #10231c;
-  --muted: #51675e;
-  --card: #fffdf8;
-  --line: #cbd9cf;
-  --brand: #0d7f5f;
-  --brand-2: #ff8a2b;
-  --warn: #b03a11;
-  --shadow: 0 12px 32px rgba(13,40,33,.12);
+  --bg: #f9f9fa;
+  --ink: #1a1a2e;
+  --muted: #555;
+  --card: #fff;
+  --line: #e6e6e6;
+  --brand-blue: #464feb;
+  --brand-white: #fff;
+  --brand-red: #d32f2f;
+  --warn: #d32f2f;
+  --shadow: 0 4px 12px rgba(0,0,0,.1);
 }
 
 * { box-sizing: border-box; }
@@ -57,7 +58,7 @@ body {
   text-transform: uppercase;
   letter-spacing: .08em;
   font-size: .75rem;
-  color: var(--brand);
+  color: var(--brand-blue);
 }
 
 .panel { padding: 1.2rem; }
@@ -66,7 +67,7 @@ body {
 /* ── type ── */
 .caption { margin: .35rem 0; color: var(--muted); }
 .caption.strong { font-weight: 700; color: var(--ink); }
-a { color: var(--brand); }
+a { color: var(--brand-blue); text-decoration: none; }
 code {
   background: #e8f2ee;
   padding: .1rem .35rem;
@@ -123,7 +124,7 @@ input[type="text"] {
   border: none;
   border-radius: 10px;
   padding: .65rem 1rem;
-  background: linear-gradient(135deg, var(--brand), #0b6b63);
+  background: linear-gradient(135deg, var(--brand-blue), #2e5cc8);
   color: #fff;
   font-family: inherit;
   font-weight: 700;
@@ -134,8 +135,8 @@ input[type="text"] {
 .btn:disabled { opacity: .5; cursor: default; }
 .btn.ghost {
   background: #fff;
-  color: var(--brand);
-  border: 1px solid var(--brand);
+  color: var(--brand-blue);
+  border: 1px solid var(--brand-blue);
 }
 
 /* ── stats grid ── */
@@ -165,7 +166,7 @@ input[type="text"] {
 }
 .meter-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--brand), var(--brand-2));
+  background: linear-gradient(90deg, var(--brand-blue), var(--brand-white), var(--brand-red));
   transition: width .5s ease;
 }
 
@@ -183,8 +184,26 @@ input[type="text"] {
 .warning { margin: .8rem 0 0; color: var(--warn); font-weight: 700; }
 .error { border-color: #e0a58f; color: #8e2f0e; font-weight: 700; }
 
-.token-status-ok  { color: var(--brand); font-weight: 600; }
+.token-status-ok  { color: var(--brand-blue); font-weight: 600; }
 .token-status-bad { color: var(--warn); }
+
+/* ── tables ── */
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+tr th, tr td { border: 1px solid var(--line); padding: .5rem; text-align: left; }
+tr th { background-color: #f5f5f5; font-weight: 600; }
+tr td { background-color: #fafafa; }
+
+/* ── logo ── */
+.bdo-logo {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  width: 80px;
+  height: 80px;
+  opacity: .15;
+  pointer-events: none;
+  z-index: 999;
+}
 
 /* ── responsive ── */
 @media (max-width: 720px) {

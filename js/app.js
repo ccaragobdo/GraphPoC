@@ -19,13 +19,17 @@ const html = htm.bind(createElement);
 
 // ── Defaults ──────────────────────────────────────────────────
 const DEFAULT_CONFIG = {
-  maxRuntimeMinutes: 5,
-  maxSites:          15,
-  maxFilesPerSite:   400,
-  maxTotalFiles:     5000,
-  maxFolderDepth:    2,
-  includeOneDrive:   true,
-  searchTerms:       ["team", "project", "shared"]
+  maxRuntimeMinutes:    5,
+  skipTimeLimit:        false,
+  maxSites:             15,
+  unlimitedSites:       false,
+  maxFilesPerSite:      400,
+  maxTotalFiles:        5000,
+  unlimitedFiles:       false,
+  maxFolderDepth:       2,
+  includeOneDrive:      true,
+  searchTerms:          ["team", "project", "shared"],
+  analyzeSharing:       true
 };
 
 const IDLE_PROGRESS = {
@@ -44,6 +48,11 @@ function fmtTime(seconds) {
 
 function Header() {
   return html`
+    ${html`<img
+      src="https://www.bdo.com/getmedia/4e64ef6e-396a-4245-b942-b3c74eb04f8f/BDO-USA_web-01.svg"
+      alt="BDO"
+      className="bdo-logo"
+    />`}
     <header className="card hero">
       <p className="kicker">Microsoft 365 FAST Assessment</p>
       <h1>Content Staleness Sampling Scanner</h1>
@@ -90,25 +99,59 @@ function ConfigPanel({ config, onChange, disabled, onStart, hasToken }) {
       <h2>Step 2 — Configure &amp; Start Scan</h2>
       <form onSubmit=${onSubmit} className="config-grid">
         <label>
-          Max Sites
-          <input type="number" min="1" max="30" value=${config.maxSites} disabled=${disabled}
-            onChange=${e => set("maxSites", Number(e.target.value))} />
+          <input type="checkbox" checked=${config.unlimitedSites} disabled=${disabled}
+            onChange=${e => set("unlimitedSites", e.target.checked)} />
+          Unlimited Sites
         </label>
+        ${!config.unlimitedSites ? html`
+          <label>
+            Max Sites
+            <input type="number" min="1" max="100" value=${config.maxSites} disabled=${disabled}
+              onChange=${e => set("maxSites", Number(e.target.value))} />
+          </label>
+        ` : null}
+        
         <label>
-          Max Total Files
-          <input type="number" min="100" max="10000" value=${config.maxTotalFiles} disabled=${disabled}
-            onChange=${e => set("maxTotalFiles", Number(e.target.value))} />
+          <input type="checkbox" checked=${config.unlimitedFiles} disabled=${disabled}
+            onChange=${e => set("unlimitedFiles", e.target.checked)} />
+          Unlimited Files
         </label>
+        ${!config.unlimitedFiles ? html`
+          <label>
+            Max Total Files
+            <input type="number" min="100" max="100000" value=${config.maxTotalFiles} disabled=${disabled}
+              onChange=${e => set("maxTotalFiles", Number(e.target.value))} />
+          </label>
+        ` : null}
+        
+        ${!config.unlimitedFiles ? html`
+          <label>
+            Max Files Per Site
+            <input type="number" min="50" max="10000" value=${config.maxFilesPerSite} disabled=${disabled}
+              onChange=${e => set("maxFilesPerSite", Number(e.target.value))} />
+          </label>
+        ` : null}
+
         <label>
-          Max Files Per Site
-          <input type="number" min="50" max="1000" value=${config.maxFilesPerSite} disabled=${disabled}
-            onChange=${e => set("maxFilesPerSite", Number(e.target.value))} />
+          <input type="checkbox" checked=${config.skipTimeLimit} disabled=${disabled}
+            onChange=${e => set("skipTimeLimit", e.target.checked)} />
+          Skip Time Limit (no timeout)
         </label>
+        
+        ${!config.skipTimeLimit ? html`
+          <label>
+            Max Runtime (minutes)
+            <input type="number" min="1" max="120" value=${config.maxRuntimeMinutes} disabled=${disabled}
+              onChange=${e => set("maxRuntimeMinutes", Number(e.target.value))} />
+          </label>
+        ` : null}
+        
         <label>
-          Max Runtime (minutes)
-          <input type="number" min="1" max="10" value=${config.maxRuntimeMinutes} disabled=${disabled}
-            onChange=${e => set("maxRuntimeMinutes", Number(e.target.value))} />
+          Max Folder Depth
+          <input type="number" min="1" max="5" value=${config.maxFolderDepth} disabled=${disabled}
+            onChange=${e => set("maxFolderDepth", Number(e.target.value))} />
         </label>
+
         <label>
           Search Terms (comma-separated)
           <input type="text" value=${config.searchTerms.join(",")} disabled=${disabled}
@@ -118,6 +161,11 @@ function ConfigPanel({ config, onChange, disabled, onStart, hasToken }) {
           <input type="checkbox" checked=${config.includeOneDrive} disabled=${disabled}
             onChange=${e => set("includeOneDrive", e.target.checked)} />
           Include OneDrive
+        </label>
+        <label className="inline-check">
+          <input type="checkbox" checked=${config.analyzeSharing} disabled=${disabled}
+            onChange=${e => set("analyzeSharing", e.target.checked)} />
+          Analyze Sharing &amp; Permissions
         </label>
         <button className="btn" type="submit" disabled=${disabled || !hasToken}>
           ${disabled ? "Scan Running…" : hasToken ? "▶ Start Scan" : "Paste a token first"}
@@ -190,6 +238,21 @@ function ResultsPanel({ result }) {
         <ul className="notes-list">
           ${notes.map((n, i) => html`<li key=${i}>${n}</li>`)}
         </ul>` : null}
+
+      ${config.analyzeSharing ? html`
+        <h3>Sharing &amp; Access Notes</h3>
+        <p className="caption">
+          ⚠ To identify content broadly accessible beyond intent, use Microsoft 365 admin center or SharePoint admin tools to:
+        </p>
+        <ul className="notes-list">
+          <li>Check for "Everyone except external users" and "All users" group sharing</li>
+          <li>Audit anonymous links and anyone sharing across these sites</li>
+          <li>Identify external user count per site and audit dormant external users</li>
+          <li>Flag sites with &gt;X unique permissions (broken inheritance)</li>
+          <li>Review files accessed by unusually large audiences</li>
+          <li>Locate sensitive content in broadly shared locations</li>
+        </ul>
+      ` : null}
 
       <p className="caption strong">
         ⚠ This is a time-based sampling assessment, not a full inventory.

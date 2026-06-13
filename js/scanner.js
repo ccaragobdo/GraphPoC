@@ -22,16 +22,16 @@ async function scanFolder(client, driveId, itemId, depth, ctx) {
 
   while (nextUrl) {
     if (!ctx.ok()) return;
-    if (ctx.siteCount.v >= ctx.cfg.maxFilesPerSite) return;
-    if (ctx.total.v >= ctx.cfg.maxTotalFiles) return;
+    if (ctx.siteCount.v >= ctx.maxPerSite) return;
+    if (ctx.total.v >= ctx.maxFiles) return;
 
     const payload = await client.getJson(nextUrl);
     const items = payload.value || [];
 
     for (const item of items) {
       if (!ctx.ok()) return;
-      if (ctx.siteCount.v >= ctx.cfg.maxFilesPerSite) return;
-      if (ctx.total.v >= ctx.cfg.maxTotalFiles) return;
+      if (ctx.siteCount.v >= ctx.maxPerSite) return;
+      if (ctx.total.v >= ctx.maxFiles) return;
 
       if (item.file) {
         ctx.records.push({
@@ -60,7 +60,11 @@ async function scanFolder(client, driveId, itemId, depth, ctx) {
 export async function runScan(accessToken, config, onProgress) {
   const client  = createGraphClient(accessToken);
   const startMs = Date.now();
-  const maxMs   = config.maxRuntimeMinutes * 60 * 1000;
+  const maxMs   = config.skipTimeLimit ? Infinity : (config.maxRuntimeMinutes * 60 * 1000);
+  const maxSites = config.unlimitedSites ? Infinity : config.maxSites;
+  const maxFiles = config.unlimitedFiles ? Infinity : config.maxTotalFiles;
+  const maxPerSite = config.unlimitedFiles ? Infinity : config.maxFilesPerSite;
+  
   const records = [];
   const notes   = [];
   const total   = { v: 0 };
@@ -70,8 +74,8 @@ export async function runScan(accessToken, config, onProgress) {
 
   // Returns false when we must stop
   function ok() {
-    if (Date.now() - startMs > maxMs) { timeLimitReached = true; return false; }
-    if (total.v >= config.maxTotalFiles) return false;
+    if (!config.skipTimeLimit && Date.now() - startMs > maxMs) { timeLimitReached = true; return false; }
+    if (total.v >= maxFiles) return false;
     return true;
   }
 
@@ -111,15 +115,15 @@ export async function runScan(accessToken, config, onProgress) {
       );
       for (const s of found) {
         if (s.id && !siteMap.has(s.id)) siteMap.set(s.id, s);
-        if (siteMap.size >= config.maxSites) break;
+        if (siteMap.size >= maxSites) break;
       }
     } catch (e) {
       notes.push(`Discovery term '${term}' failed: ${e.message}`);
     }
-    if (siteMap.size >= config.maxSites) break;
+    if (siteMap.size >= maxSites) break;
   }
 
-  const siteList = [...siteMap.values()].slice(0, config.maxSites);
+  const siteList = [...siteMap.values()].slice(0, maxSites);
   if (!siteList.length) {
     notes.push(config.includeOneDrive
       ? "No SharePoint sites found — will try OneDrive only."
@@ -155,6 +159,7 @@ export async function runScan(accessToken, config, onProgress) {
         await scanFolder(client, drive.id, "root", 0, {
           siteName, siteUrl, libName,
           cfg: config, records, siteCount, total,
+          maxPerSite, maxFiles,
           ok, tick: () => emit("Scanning", siteName, libName)
         });
       } catch (e) {
@@ -179,6 +184,7 @@ export async function runScan(accessToken, config, onProgress) {
       await scanFolder(client, meDrive.id, "root", 0, {
         siteName, siteUrl, libName,
         cfg: config, records, siteCount, total,
+        maxPerSite, maxFiles,
         ok, tick: () => emit("Scanning", siteName, libName)
       });
       sites++;
