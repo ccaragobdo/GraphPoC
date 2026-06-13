@@ -2,7 +2,7 @@
 // React app loaded via ESM CDN — no build step required.
 // Uses htm for JSX-like syntax without a compiler.
 
-import { createElement, useState, useCallback } from "react";
+import { createElement, Component, useState, useCallback } from "react";
 import { createRoot }                           from "react-dom/client";
 import htm                                      from "htm";
 import { runScan }                              from "./scanner.js";
@@ -199,7 +199,7 @@ function ProgressPanel({ progress, maxRuntimeMinutes, visible }) {
     </section>`;
 }
 
-function ResultsPanel({ result }) {
+function ResultsPanel({ result, analyzeSharing }) {
   if (!result) return null;
   const { summary, records, notes } = result;
 
@@ -239,7 +239,7 @@ function ResultsPanel({ result }) {
           ${notes.map((n, i) => html`<li key=${i}>${n}</li>`)}
         </ul>` : null}
 
-      ${config.analyzeSharing ? html`
+      ${analyzeSharing ? html`
         <h3>Sharing &amp; Access Notes</h3>
         <p className="caption">
           ⚠ To identify content broadly accessible beyond intent, use Microsoft 365 admin center or SharePoint admin tools to:
@@ -317,10 +317,42 @@ function App() {
         maxRuntimeMinutes=${config.maxRuntimeMinutes}
         visible=${showProgress}
       />
-      <${ResultsPanel} result=${result} />
+      <${ResultsPanel} result=${result} analyzeSharing=${config.analyzeSharing} />
       ${error ? html`<section className="card panel error">⚠ ${error}</section>` : null}
     </main>`;
 }
 
+class AppErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error) {
+    // eslint-disable-next-line no-console
+    console.error("Unhandled UI error", error);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return html`
+        <main className="app-shell">
+          <section className="card panel error">
+            The app hit an unexpected error. Refresh and try again.
+          </section>
+        </main>
+      `;
+    }
+
+    return this.props.children;
+  }
+}
+
 // ── Mount ─────────────────────────────────────────────────────
-createRoot(document.getElementById("root")).render(html`<${App} />`);
+createRoot(document.getElementById("root")).render(
+  html`<${AppErrorBoundary}><${App} /><//>`
+);
