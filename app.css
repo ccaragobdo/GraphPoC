@@ -21,7 +21,7 @@ body {
   color: var(--ink);
   background:
     radial-gradient(circle at 0% 0%, #464feb 0, transparent 40%),
-    radial-gradient(circle at 100% 30%, #d32f2f 0, transparent 45%),
+    radial-gradient(circle at 100% 30%, #fff 0, transparent 45%),
     var(--bg);
   min-height: 100vh;
   line-height: 1.5;
@@ -159,7 +159,7 @@ input[type="text"] {
 /* ── progress bar ── */
 .meter {
   margin-top: .85rem;
-  background: #dce8df;
+  background: #eee;
   border-radius: 999px;
   height: 12px;
   overflow: hidden;
