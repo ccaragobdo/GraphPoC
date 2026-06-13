@@ -1,0 +1,251 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap");
+
+:root {
+  --bg: #f4f1e8;
+  --ink: #10231c;
+  --muted: #51675e;
+  --card: #fffdf8;
+  --line: #cbd9cf;
+  --brand: #0d7f5f;
+  --brand-2: #ff8a2b;
+  --warn: #b03a11;
+  --shadow: 0 12px 32px rgba(13, 40, 33, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 0% 0%, #fbd7b0 0, transparent 40%),
+    radial-gradient(circle at 100% 30%, #c5f5e6 0, transparent 45%),
+    var(--bg);
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-shell {
+  width: min(1100px, 94vw);
+  margin: 2rem auto 3rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+
+.hero {
+  padding: 1.5rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.hero h1 {
+  margin: 0.25rem 0 0.5rem;
+  font-size: clamp(1.6rem, 3vw, 2.3rem);
+}
+
+.kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.75rem;
+  color: var(--brand);
+}
+
+.caption {
+  margin: 0.35rem 0;
+  color: var(--muted);
+}
+
+.caption.strong {
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.auth-box {
+  min-width: 240px;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  padding: 0.8rem;
+  background: #fbfff8;
+}
+
+.label {
+  margin: 0;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.value {
+  margin: 0.4rem 0 0.8rem;
+  font-family: "DM Mono", monospace;
+  word-break: break-word;
+}
+
+.panel {
+  padding: 1.2rem;
+}
+
+.panel h2,
+.panel h3 {
+  margin-top: 0;
+}
+
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(200px, 1fr));
+  gap: 0.8rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.inline-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.6rem;
+}
+
+input[type="number"],
+input[type="text"] {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.55rem 0.65rem;
+  font-family: "DM Mono", monospace;
+}
+
+.token-input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.7rem;
+  font-family: "DM Mono", monospace;
+  resize: vertical;
+}
+
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: 0.65rem 0.85rem;
+  background: linear-gradient(135deg, var(--brand), #0b6b63);
+  color: white;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.btn.ghost {
+  background: white;
+  color: var(--brand);
+  border: 1px solid var(--brand);
+}
+
+.stats-grid {
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.stats-grid p {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.55rem;
+  background: #fff;
+}
+
+.stats-grid span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.meter {
+  margin-top: 0.85rem;
+  background: #dce8df;
+  border-radius: 999px;
+  height: 12px;
+  overflow: hidden;
+}
+
+.meter-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand), var(--brand-2));
+  transition: width 0.4s ease;
+}
+
+.warning {
+  margin: 0.8rem 0 0;
+  color: var(--warn);
+  font-weight: 700;
+}
+
+.rank-list,
+.notes-list {
+  margin: 0.4rem 0 1rem;
+  padding-left: 1rem;
+}
+
+.rank-list li,
+.notes-list li {
+  margin: 0.45rem 0;
+}
+
+.rank-list span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.button-row {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.error {
+  border-color: #e0a58f;
+  color: #8e2f0e;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .hero {
+    flex-direction: column;
+  }
+
+  .auth-box {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .config-grid {
+    grid-template-columns: 1fr;
+  }
+}
