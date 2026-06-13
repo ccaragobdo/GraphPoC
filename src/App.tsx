@@ -110,6 +110,7 @@ export default function App() {
   const combinedError = useMemo(() => scan.error || authError, [scan.error, authError]);
   const hasManualToken = manualToken.trim().length > 0;
   const canRunScan = isMsalEnabled ? Boolean(account) : hasManualToken;
+  const showGettingStarted = !scan.isRunning && !scan.result;
 
   return (
     <main className="app-shell">
@@ -124,6 +125,19 @@ export default function App() {
 
       {!isMsalEnabled && (
         <TokenPanel token={manualToken} onTokenChange={setManualToken} disabled={scan.isRunning} />
+      )}
+
+      {showGettingStarted && (
+        <section className="card panel">
+          <h2>Getting Started</h2>
+          <ol className="steps-list">
+            <li>Provide authentication: paste a Graph token (manual mode) or sign in (MSAL mode).</li>
+            <li>Review scan limits in the configuration panel.</li>
+            <li>Click Start Scan and monitor live progress.</li>
+            <li>Export CSV/JSON results when complete.</li>
+          </ol>
+          <p className="caption strong">Status: {canRunScan ? "Ready to scan" : "Waiting for authentication"}</p>
+        </section>
       )}
 
       <ConfigPanel
