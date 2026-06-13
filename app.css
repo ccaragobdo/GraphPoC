@@ -20,8 +20,8 @@ body {
   font-family: "Space Grotesk", sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(circle at 0% 0%, #fbd7b0 0, transparent 40%),
-    radial-gradient(circle at 100% 30%, #c5f5e6 0, transparent 45%),
+    radial-gradient(circle at 0% 0%, #464feb 0, transparent 40%),
+    radial-gradient(circle at 100% 30%, #d32f2f 0, transparent 45%),
     var(--bg);
   min-height: 100vh;
   line-height: 1.5;
