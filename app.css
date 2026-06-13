@@ -1,0 +1,192 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap");
+
+:root {
+  --bg: #f4f1e8;
+  --ink: #10231c;
+  --muted: #51675e;
+  --card: #fffdf8;
+  --line: #cbd9cf;
+  --brand: #0d7f5f;
+  --brand-2: #ff8a2b;
+  --warn: #b03a11;
+  --shadow: 0 12px 32px rgba(13,40,33,.12);
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Space Grotesk", sans-serif;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 0% 0%, #fbd7b0 0, transparent 40%),
+    radial-gradient(circle at 100% 30%, #c5f5e6 0, transparent 45%),
+    var(--bg);
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+#root { min-height: 100vh; }
+
+.app-shell {
+  width: min(1100px, 94vw);
+  margin: 2rem auto 3rem;
+  display: grid;
+  gap: 1rem;
+}
+
+/* ── cards ── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+
+.hero {
+  padding: 1.5rem;
+}
+
+.hero h1 {
+  margin: .25rem 0 .5rem;
+  font-size: clamp(1.6rem, 3vw, 2.3rem);
+}
+
+.kicker {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: .75rem;
+  color: var(--brand);
+}
+
+.panel { padding: 1.2rem; }
+.panel h2, .panel h3 { margin-top: 0; }
+
+/* ── type ── */
+.caption { margin: .35rem 0; color: var(--muted); }
+.caption.strong { font-weight: 700; color: var(--ink); }
+a { color: var(--brand); }
+code {
+  background: #e8f2ee;
+  padding: .1rem .35rem;
+  border-radius: 5px;
+  font-family: "DM Mono", monospace;
+  font-size: .9em;
+}
+
+/* ── form ── */
+.config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(200px, 1fr));
+  gap: .8rem;
+}
+
+label {
+  display: flex;
+  flex-direction: column;
+  gap: .35rem;
+  font-weight: 500;
+  font-size: .9rem;
+}
+
+.inline-check {
+  flex-direction: row;
+  align-items: center;
+  gap: .5rem;
+  margin-top: 1.4rem;
+}
+
+input[type="number"],
+input[type="text"] {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: .55rem .65rem;
+  font-family: "DM Mono", monospace;
+  font-size: .95rem;
+}
+
+.token-input {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: .7rem;
+  font-family: "DM Mono", monospace;
+  font-size: .85rem;
+  resize: vertical;
+  display: block;
+  margin-bottom: .5rem;
+}
+
+/* ── buttons ── */
+.btn {
+  border: none;
+  border-radius: 10px;
+  padding: .65rem 1rem;
+  background: linear-gradient(135deg, var(--brand), #0b6b63);
+  color: #fff;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: .95rem;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.btn:disabled { opacity: .5; cursor: default; }
+.btn.ghost {
+  background: #fff;
+  color: var(--brand);
+  border: 1px solid var(--brand);
+}
+
+/* ── stats grid ── */
+.stats-grid {
+  display: grid;
+  gap: .6rem;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+.stats-grid p {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: .55rem;
+  background: #fff;
+}
+.stats-grid span { color: var(--muted); font-size: .82rem; }
+
+/* ── progress bar ── */
+.meter {
+  margin-top: .85rem;
+  background: #dce8df;
+  border-radius: 999px;
+  height: 12px;
+  overflow: hidden;
+}
+.meter-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--brand), var(--brand-2));
+  transition: width .5s ease;
+}
+
+/* ── lists ── */
+.rank-list, .notes-list { margin: .4rem 0 1rem; padding-left: 1rem; }
+.rank-list li, .notes-list li { margin: .45rem 0; }
+.rank-list span { display: block; color: var(--muted); font-size: .88rem; }
+
+.button-row { display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1rem; }
+
+.steps-list { margin: .35rem 0 .9rem; padding-left: 1.2rem; }
+.steps-list li { margin: .35rem 0; }
+
+/* ── status messages ── */
+.warning { margin: .8rem 0 0; color: var(--warn); font-weight: 700; }
+.error { border-color: #e0a58f; color: #8e2f0e; font-weight: 700; }
+
+.token-status-ok  { color: var(--brand); font-weight: 600; }
+.token-status-bad { color: var(--warn); }
+
+/* ── responsive ── */
+@media (max-width: 720px) {
+  .config-grid { grid-template-columns: 1fr; }
+}
