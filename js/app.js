@@ -2,7 +2,7 @@
 // React app loaded via ESM CDN — no build step required.
 // Uses htm for JSX-like syntax without a compiler.
 
-import { createElement, Component, useState, useCallback } from "react";
+import { createElement, Component, useState, useCallback, useEffect } from "react";
 import { createRoot }                           from "react-dom/client";
 import htm                                      from "htm";
 import { runScan }                              from "./scanner.js";
@@ -92,12 +92,11 @@ function TokenPanel({ token, onChange, disabled }) {
 
 function ConfigPanel({ config, onChange, disabled, onStart, hasToken }) {
   const set = (key, val) => onChange({ ...config, [key]: val });
-  const onSubmit = e => { e.preventDefault(); onStart(); };
 
   return html`
     <section className="card panel">
       <h2>Step 2 — Configure &amp; Start Scan</h2>
-      <form onSubmit=${onSubmit} className="config-grid">
+      <div className="config-grid">
         <label>
           <input type="checkbox" checked=${config.unlimitedSites} disabled=${disabled}
             onChange=${e => set("unlimitedSites", e.target.checked)} />
@@ -167,10 +166,10 @@ function ConfigPanel({ config, onChange, disabled, onStart, hasToken }) {
             onChange=${e => set("analyzeSharing", e.target.checked)} />
           Analyze Sharing &amp; Permissions
         </label>
-        <button className="btn" type="submit" disabled=${disabled || !hasToken}>
+        <button className="btn" type="button" onClick=${onStart} disabled=${disabled || !hasToken}>
           ${disabled ? "Scan Running…" : hasToken ? "▶ Start Scan" : "Paste a token first"}
         </button>
-      </form>
+      </div>
     </section>`;
 }
 
@@ -275,6 +274,7 @@ function App() {
   const [progress,   setProgress]   = useState(IDLE_PROGRESS);
   const [result,     setResult]     = useState(null);
   const [error,      setError]      = useState("");
+  const [fatalError, setFatalError] = useState("");
 
   const hasToken = token.trim().length > 20;
 
@@ -299,6 +299,40 @@ function App() {
     }
   }, [token, config]);
 
+  useEffect(() => {
+    function onWindowError(event) {
+      const message = event?.error?.message || event?.message || "Unexpected runtime error";
+      setFatalError(String(message));
+    }
+
+    function onUnhandledRejection(event) {
+      const reason = event?.reason;
+      const message = reason?.message || String(reason || "Unexpected promise rejection");
+      setFatalError(message);
+    }
+
+    window.addEventListener("error", onWindowError);
+    window.addEventListener("unhandledrejection", onUnhandledRejection);
+
+    return () => {
+      window.removeEventListener("error", onWindowError);
+      window.removeEventListener("unhandledrejection", onUnhandledRejection);
+    };
+  }, []);
+
+  useEffect(() => {
+    function guardNavigation(event) {
+      if (!isScanning) return;
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", guardNavigation);
+    return () => {
+      window.removeEventListener("beforeunload", guardNavigation);
+    };
+  }, [isScanning]);
+
   const showProgress = isScanning || (progress.phase !== "Idle" && progress.phase !== "Complete") || progress.phase === "Complete";
 
   return html`
@@ -319,6 +353,7 @@ function App() {
       />
       <${ResultsPanel} result=${result} analyzeSharing=${config.analyzeSharing} />
       ${error ? html`<section className="card panel error">⚠ ${error}</section>` : null}
+      ${fatalError ? html`<section className="card panel error">⚠ Runtime error: ${fatalError}</section>` : null}
     </main>`;
 }
 
