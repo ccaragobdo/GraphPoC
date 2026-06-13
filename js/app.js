@@ -5,12 +5,11 @@
 import { createElement, Component, useState, useCallback, useEffect } from "react";
 import { createRoot }                           from "react-dom/client";
 import htm                                      from "htm";
-import { runScan }                              from "./scanner.js?v=20260613c";
+import { runScan }                              from "./scanner.js?v=20260613d";
 import {
   summarize,
-  exportInventoryCsv,
+  mergeSiteExposureIntoSummary,
   exportSummaryBySiteCsv,
-  exportSummaryByLibraryCsv,
   exportFullJson
 } from "./analysis.js";
 
@@ -27,9 +26,7 @@ const DEFAULT_CONFIG = {
   maxTotalFiles:        5000,
   unlimitedFiles:       false,
   maxFolderDepth:       2,
-  includeOneDrive:      true,
-  searchTerms:          ["team", "project", "shared"],
-  analyzeSharing:       true
+  includeOneDrive:      true
 };
 
 const IDLE_PROGRESS = {
@@ -151,20 +148,10 @@ function ConfigPanel({ config, onChange, disabled, onStart, hasToken }) {
             onChange=${e => set("maxFolderDepth", Number(e.target.value))} />
         </label>
 
-        <label>
-          Search Terms (comma-separated)
-          <input type="text" value=${config.searchTerms.join(",")} disabled=${disabled}
-            onChange=${e => set("searchTerms", e.target.value.split(",").map(x => x.trim()).filter(Boolean))} />
-        </label>
         <label className="inline-check">
           <input type="checkbox" checked=${config.includeOneDrive} disabled=${disabled}
             onChange=${e => set("includeOneDrive", e.target.checked)} />
           Include OneDrive
-        </label>
-        <label className="inline-check">
-          <input type="checkbox" checked=${config.analyzeSharing} disabled=${disabled}
-            onChange=${e => set("analyzeSharing", e.target.checked)} />
-          Analyze Sharing &amp; Permissions
         </label>
         <button className="btn" type="button" onClick=${onStart} disabled=${disabled || !hasToken}>
           ${disabled ? "Scan Running…" : hasToken ? "▶ Start Scan" : "Paste a token first"}
@@ -198,9 +185,9 @@ function ProgressPanel({ progress, maxRuntimeMinutes, visible }) {
     </section>`;
 }
 
-function ResultsPanel({ result, analyzeSharing }) {
+function ResultsPanel({ result }) {
   if (!result) return null;
-  const { summary, records, notes } = result;
+  const { summary, notes } = result;
 
   return html`
     <section className="card panel">
@@ -219,7 +206,10 @@ function ResultsPanel({ result, analyzeSharing }) {
         ${summary.bySite.slice(0, 5).map(s => html`
           <li key=${s.siteName + s.siteUrl}>
             <strong>${s.siteName}</strong>
-            <span>${s.files} files | stale &gt;365: ${s.stale365} | stale &gt;90: ${s.stale90}</span>
+            <span>
+              ${s.files} files | stale &gt;365: ${s.stale365} | anyone links: ${(s.anyoneLinks ?? 0)}
+              | everyone/all users grants: ${(s.everyoneAllUsersGrants ?? 0)}
+            </span>
           </li>`)}
       </ul>
 
@@ -238,29 +228,12 @@ function ResultsPanel({ result, analyzeSharing }) {
           ${notes.map((n, i) => html`<li key=${i}>${n}</li>`)}
         </ul>` : null}
 
-      ${analyzeSharing ? html`
-        <h3>Sharing &amp; Access Notes</h3>
-        <p className="caption">
-          ⚠ To identify content broadly accessible beyond intent, use Microsoft 365 admin center or SharePoint admin tools to:
-        </p>
-        <ul className="notes-list">
-          <li>Check for "Everyone except external users" and "All users" group sharing</li>
-          <li>Audit anonymous links and anyone sharing across these sites</li>
-          <li>Identify external user count per site and audit dormant external users</li>
-          <li>Flag sites with &gt;X unique permissions (broken inheritance)</li>
-          <li>Review files accessed by unusually large audiences</li>
-          <li>Locate sensitive content in broadly shared locations</li>
-        </ul>
-      ` : null}
-
       <p className="caption strong">
         ⚠ This is a time-based sampling assessment, not a full inventory.
       </p>
 
       <div className="button-row">
-        <button className="btn"       onClick=${() => exportInventoryCsv(records)}>⬇ file_inventory.csv</button>
         <button className="btn ghost" onClick=${() => exportSummaryBySiteCsv(summary)}>⬇ summary_by_site.csv</button>
-        <button className="btn ghost" onClick=${() => exportSummaryByLibraryCsv(summary)}>⬇ summary_by_library.csv</button>
         <button className="btn ghost" onClick=${() => exportFullJson(result)}>⬇ full_results.json</button>
       </div>
     </section>`;
@@ -289,7 +262,10 @@ function App() {
 
     try {
       const scanData = await runScan(t, config, p => setProgress({ ...p }));
-      const summary  = summarize(scanData.records);
+      const summary  = mergeSiteExposureIntoSummary(
+        summarize(scanData.records),
+        scanData.siteExposureBySite || []
+      );
       setResult({ ...scanData, summary });
       setProgress(prev => ({ ...prev, phase: "Complete" }));
     } catch (e) {
@@ -351,7 +327,7 @@ function App() {
         maxRuntimeMinutes=${config.maxRuntimeMinutes}
         visible=${showProgress}
       />
-      <${ResultsPanel} result=${result} analyzeSharing=${config.analyzeSharing} />
+      <${ResultsPanel} result=${result} />
       ${error ? html`<section className="card panel error">⚠ ${error}</section>` : null}
       ${fatalError ? html`<section className="card panel error">⚠ Runtime error: ${fatalError}</section>` : null}
     </main>`;

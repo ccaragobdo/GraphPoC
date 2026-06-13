@@ -9,6 +9,97 @@ function ext(name) {
   return i === -1 ? "" : name.slice(i + 1).toLowerCase();
 }
 
+function makeSiteKey(siteName, siteUrl) {
+  return `${siteName}||${siteUrl}`;
+}
+
+function ensureSiteExposure(exposureMap, siteName, siteUrl) {
+  const key = makeSiteKey(siteName, siteUrl);
+  if (!exposureMap.has(key)) {
+    exposureMap.set(key, {
+      siteName,
+      siteUrl,
+      permissionsChecked: 0,
+      anyoneLinks: 0,
+      organizationLinks: 0,
+      everyoneAllUsersGrants: 0,
+      filesWithAnyoneLinks: 0,
+      filesWithEveryoneAllUsers: 0
+    });
+  }
+  return exposureMap.get(key);
+}
+
+function collectPrincipalNames(permission) {
+  const names = [];
+  const identities = [];
+
+  if (Array.isArray(permission.grantedToIdentitiesV2)) {
+    identities.push(...permission.grantedToIdentitiesV2);
+  }
+  if (permission.grantedToV2) {
+    identities.push(permission.grantedToV2);
+  }
+  if (permission.grantedTo) {
+    identities.push(permission.grantedTo);
+  }
+
+  for (const identity of identities) {
+    const directName = identity?.displayName;
+    const userName = identity?.user?.displayName;
+    const groupName = identity?.group?.displayName;
+    const siteGroupName = identity?.siteGroup?.displayName;
+
+    if (directName) names.push(directName);
+    if (userName) names.push(userName);
+    if (groupName) names.push(groupName);
+    if (siteGroupName) names.push(siteGroupName);
+  }
+
+  return names;
+}
+
+function isEveryoneOrAllUsersName(name) {
+  const value = String(name || "").toLowerCase();
+  return value.includes("everyone") || value.includes("all users");
+}
+
+async function collectItemExposure(client, driveId, itemId, exposure) {
+  const permissions = await client.getAllPages(
+    `/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}/permissions?$top=200`,
+    p => p.value || []
+  );
+
+  let fileHasAnyoneLink = false;
+  let fileHasEveryoneGroup = false;
+
+  for (const permission of permissions) {
+    exposure.permissionsChecked += 1;
+
+    const scope = String(permission?.link?.scope || "").toLowerCase();
+    if (scope === "anonymous") {
+      exposure.anyoneLinks += 1;
+      fileHasAnyoneLink = true;
+    }
+    if (scope === "organization") {
+      exposure.organizationLinks += 1;
+    }
+
+    const names = collectPrincipalNames(permission);
+    if (names.some(isEveryoneOrAllUsersName)) {
+      exposure.everyoneAllUsersGrants += 1;
+      fileHasEveryoneGroup = true;
+    }
+  }
+
+  if (fileHasAnyoneLink) {
+    exposure.filesWithAnyoneLinks += 1;
+  }
+  if (fileHasEveryoneGroup) {
+    exposure.filesWithEveryoneAllUsers += 1;
+  }
+}
+
 // Recursively scan a drive folder up to maxFolderDepth levels.
 // Stops immediately when any cap is exceeded or time is up.
 async function scanFolder(client, driveId, itemId, depth, ctx) {
@@ -46,6 +137,15 @@ async function scanFolder(client, driveId, itemId, depth, ctx) {
         });
         ctx.siteCount.v++;
         ctx.total.v++;
+
+        try {
+          await collectItemExposure(client, driveId, item.id, ctx.siteExposure);
+        } catch (e) {
+          ctx.notes.push(
+            `Permission check failed for '${ctx.siteName}/${ctx.libName}/${item.name}': ${e.message}`
+          );
+        }
+
         ctx.tick();
       } else if (item.folder && depth < ctx.cfg.maxFolderDepth) {
         await scanFolder(client, driveId, item.id, depth + 1, ctx);
@@ -67,6 +167,7 @@ export async function runScan(accessToken, config, onProgress) {
   
   const records = [];
   const notes   = [];
+  const exposureBySite = new Map();
   const total   = { v: 0 };
   let   sites   = 0;
   let   timeLimitReached = false;
@@ -100,10 +201,6 @@ export async function runScan(accessToken, config, onProgress) {
   // ── Phase 1: Site Discovery ───────────────────────────────
   emit("Discovery", "", "", true);
 
-  const terms = config.searchTerms && config.searchTerms.length
-    ? config.searchTerms
-    : ["team", "project", "shared"];
-
   const siteMap = new Map();
 
   async function discoverAllSites() {
@@ -123,28 +220,32 @@ export async function runScan(accessToken, config, onProgress) {
     }
   }
 
+  let allSiteDiscoveryWorked = false;
   try {
     await discoverAllSites();
+    allSiteDiscoveryWorked = true;
   } catch (e) {
-    notes.push(`getAllSites not available for this token; falling back to search discovery: ${e.message}`);
+    notes.push(`getAllSites discovery failed: ${e.message}`);
   }
 
-  for (const term of terms) {
-    if (!ok()) break;
-    if (siteMap.size >= maxSites) break;
+  if (!allSiteDiscoveryWorked) {
     try {
-      const found = await client.getAllPages(
-        `/sites?search=${encodeURIComponent(term)}&$top=25`,
+      const fallbackSites = await client.getAllPages(
+        "/sites?$top=999",
         p => p.value || []
       );
-      for (const s of found) {
-        if (s.id && !siteMap.has(s.id)) siteMap.set(s.id, s);
-        if (siteMap.size >= maxSites) break;
+      for (const s of fallbackSites) {
+        if (s.id && !siteMap.has(s.id)) {
+          siteMap.set(s.id, s);
+        }
+        if (siteMap.size >= maxSites) {
+          break;
+        }
       }
+      notes.push("Used /sites fallback discovery because getAllSites was unavailable.");
     } catch (e) {
-      notes.push(`Discovery term '${term}' failed: ${e.message}`);
+      notes.push(`Fallback /sites discovery failed: ${e.message}`);
     }
-    if (siteMap.size >= maxSites) break;
   }
 
   const siteList = [...siteMap.values()].slice(0, maxSites);
@@ -152,7 +253,7 @@ export async function runScan(accessToken, config, onProgress) {
   if (!siteList.length) {
     notes.push(config.includeOneDrive
       ? "No SharePoint sites found — will try OneDrive only."
-      : "No SharePoint sites found for the given search terms.");
+      : "No SharePoint sites found for this token.");
   }
 
   // ── Phase 2: Scan Each Site ───────────────────────────────
@@ -163,6 +264,7 @@ export async function runScan(accessToken, config, onProgress) {
 
     const siteName = site.displayName || site.name || site.id;
     const siteUrl  = site.webUrl || "";
+    const siteExposure = ensureSiteExposure(exposureBySite, siteName, siteUrl);
     let   drives   = [];
 
     try {
@@ -183,7 +285,7 @@ export async function runScan(accessToken, config, onProgress) {
       try {
         await scanFolder(client, drive.id, "root", 0, {
           siteName, siteUrl, libName,
-          cfg: config, records, siteCount, total,
+          cfg: config, records, notes, siteExposure, siteCount, total,
           maxPerSite, maxFiles,
           ok, tick: () => emit("Scanning", siteName, libName)
         });
@@ -202,13 +304,14 @@ export async function runScan(accessToken, config, onProgress) {
       const meDrive   = await client.getJson("/me/drive");
       const siteName  = "OneDrive";
       const siteUrl   = meDrive.webUrl || "";
+      const siteExposure = ensureSiteExposure(exposureBySite, siteName, siteUrl);
       const libName   = meDrive.name || "OneDrive";
       const siteCount = { v: 0 };
       emit("Scanning", siteName, libName, true);
 
       await scanFolder(client, meDrive.id, "root", 0, {
         siteName, siteUrl, libName,
-        cfg: config, records, siteCount, total,
+        cfg: config, records, notes, siteExposure, siteCount, total,
         maxPerSite, maxFiles,
         ok, tick: () => emit("Scanning", siteName, libName)
       });
@@ -225,6 +328,7 @@ export async function runScan(accessToken, config, onProgress) {
   return {
     records,
     notes,
+    siteExposureBySite: [...exposureBySite.values()],
     sitesProcessed: sites,
     timeLimitReached,
     startedAt:  new Date(startMs).toISOString(),

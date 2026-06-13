@@ -59,6 +59,30 @@ export function summarize(records) {
   };
 }
 
+export function mergeSiteExposureIntoSummary(summary, siteExposureBySite) {
+  const exposureMap = new Map();
+
+  for (const site of siteExposureBySite || []) {
+    const key = `${site.siteName}||${site.siteUrl}`;
+    exposureMap.set(key, site);
+  }
+
+  summary.bySite = summary.bySite.map((site) => {
+    const exposure = exposureMap.get(`${site.siteName}||${site.siteUrl}`);
+    return {
+      ...site,
+      anyoneLinks: exposure?.anyoneLinks ?? 0,
+      organizationLinks: exposure?.organizationLinks ?? 0,
+      everyoneAllUsersGrants: exposure?.everyoneAllUsersGrants ?? 0,
+      filesWithAnyoneLinks: exposure?.filesWithAnyoneLinks ?? 0,
+      filesWithEveryoneAllUsers: exposure?.filesWithEveryoneAllUsers ?? 0,
+      permissionsChecked: exposure?.permissionsChecked ?? 0
+    };
+  });
+
+  return summary;
+}
+
 // ── CSV / JSON helpers ────────────────────────────────────────
 function escCsv(v) {
   const s = String(v ?? "");
@@ -84,36 +108,19 @@ function download(filename, content, type) {
   URL.revokeObjectURL(url);
 }
 
-export function exportInventoryCsv(records) {
-  const rows = records.map(r => ({
-    SiteName:             r.siteName,
-    SiteUrl:              r.siteUrl,
-    LibraryName:          r.libraryName,
-    FileName:             r.fileName,
-    FileExtension:        r.extension,
-    FileSize:             r.size,
-    CreatedDateTime:      r.createdDateTime,
-    LastModifiedDateTime: r.lastModifiedDateTime
-  }));
-  download("file_inventory.csv", toCsv(rows), "text/csv;charset=utf-8");
-}
-
 export function exportSummaryBySiteCsv(summary) {
   const rows = summary.bySite.map(s => ({
     SiteName: s.siteName, SiteUrl: s.siteUrl,
     Files: s.files, TotalSize: s.totalSize,
-    Stale90: s.stale90, Stale180: s.stale180, Stale365: s.stale365
+    Stale90: s.stale90, Stale180: s.stale180, Stale365: s.stale365,
+    AnyoneLinks: s.anyoneLinks ?? 0,
+    OrganizationLinks: s.organizationLinks ?? 0,
+    EveryoneOrAllUsersGrants: s.everyoneAllUsersGrants ?? 0,
+    FilesWithAnyoneLinks: s.filesWithAnyoneLinks ?? 0,
+    FilesWithEveryoneOrAllUsers: s.filesWithEveryoneAllUsers ?? 0,
+    PermissionsChecked: s.permissionsChecked ?? 0
   }));
   download("summary_by_site.csv", toCsv(rows), "text/csv;charset=utf-8");
-}
-
-export function exportSummaryByLibraryCsv(summary) {
-  const rows = summary.byLibrary.map(l => ({
-    SiteName: l.siteName, SiteUrl: l.siteUrl, LibraryName: l.libraryName,
-    Files: l.files, TotalSize: l.totalSize,
-    Stale90: l.stale90, Stale180: l.stale180, Stale365: l.stale365
-  }));
-  download("summary_by_library.csv", toCsv(rows), "text/csv;charset=utf-8");
 }
 
 export function exportFullJson(result) {
