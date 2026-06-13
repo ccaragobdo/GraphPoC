@@ -26,6 +26,7 @@ export default function App() {
   const [instance] = useState<PublicClientApplication | null>(() =>
     isMsalEnabled ? new PublicClientApplication(msalConfig) : null
   );
+  const [isMsalReady, setIsMsalReady] = useState(!isMsalEnabled);
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [authError, setAuthError] = useState("");
   const [account, setAccount] = useState<AccountInfo | null>(null);
@@ -35,26 +36,56 @@ export default function App() {
 
   useEffect(() => {
     if (!instance) {
+      setIsMsalReady(true);
       setAccount(null);
       return;
     }
 
-    const active = instance.getActiveAccount();
-    if (active) {
-      setAccount(active);
-      return;
-    }
+    let isMounted = true;
 
-    const all = instance.getAllAccounts();
-    if (all.length > 0) {
-      instance.setActiveAccount(all[0]);
-      setAccount(all[0]);
-    }
+    void (async () => {
+      try {
+        setIsMsalReady(false);
+        await instance.initialize();
+        await instance.handleRedirectPromise();
+
+        if (!isMounted) {
+          return;
+        }
+
+        const active = instance.getActiveAccount();
+        if (active) {
+          setAccount(active);
+        } else {
+          const all = instance.getAllAccounts();
+          if (all.length > 0) {
+            instance.setActiveAccount(all[0]);
+            setAccount(all[0]);
+          }
+        }
+
+        setIsMsalReady(true);
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+        setAuthError(`MSAL initialization error: ${(error as Error).message}`);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
   }, [instance]);
 
   async function handleSignIn(): Promise<void> {
     if (!instance) {
       setAuthError("MSAL is not configured. Use manual token mode.");
+      return;
+    }
+
+    if (!isMsalReady) {
+      setAuthError("Authentication is still initializing. Please wait a moment.");
       return;
     }
 
@@ -93,6 +124,11 @@ export default function App() {
       let accessToken = manualTokenValue;
 
       if (!accessToken) {
+        if (!isMsalReady) {
+          setAuthError("Authentication is still initializing. Please wait a moment.");
+          return;
+        }
+
         if (!instance || !account) {
           setAuthError("Sign in before starting the scan.");
           return;
@@ -109,7 +145,7 @@ export default function App() {
 
   const combinedError = useMemo(() => scan.error || authError, [scan.error, authError]);
   const hasManualToken = manualToken.trim().length > 0;
-  const canRunScan = isMsalEnabled ? Boolean(account) : hasManualToken;
+  const canRunScan = isMsalEnabled ? isMsalReady && Boolean(account) : hasManualToken;
   const showGettingStarted = !scan.isRunning && !scan.result;
 
   return (
@@ -117,6 +153,7 @@ export default function App() {
       <HeaderBar
         account={account}
         isMsalEnabled={isMsalEnabled}
+        isMsalReady={isMsalReady}
         hasManualToken={hasManualToken}
         isSigningIn={isSigningIn}
         onSignIn={handleSignIn}

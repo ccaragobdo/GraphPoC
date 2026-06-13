@@ -1,15 +1,15 @@
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=DM+Mono:wght@400;500&display=swap");
 
 :root {
-  --bg: #f4f1e8;
-  --ink: #10231c;
-  --muted: #51675e;
-  --card: #fffdf8;
-  --line: #cbd9cf;
-  --brand: #0d7f5f;
-  --brand-2: #ff8a2b;
+  --bg: #f7f9fd;
+  --ink: #102446;
+  --muted: #476188;
+  --card: #ffffff;
+  --line: #c8d8ee;
+  --brand: #00338d;
+  --brand-2: #e22a2f;
   --warn: #b03a11;
-  --shadow: 0 12px 32px rgba(13, 40, 33, 0.12);
+  --shadow: 0 12px 32px rgba(0, 46, 125, 0.14);
 }
 
 * {
@@ -21,8 +21,9 @@ body {
   font-family: "Space Grotesk", sans-serif;
   color: var(--ink);
   background:
-    radial-gradient(circle at 0% 0%, #fbd7b0 0, transparent 40%),
-    radial-gradient(circle at 100% 30%, #c5f5e6 0, transparent 45%),
+    radial-gradient(circle at 5% 0%, rgba(0, 51, 141, 0.2) 0, transparent 45%),
+    radial-gradient(circle at 95% 100%, rgba(226, 42, 47, 0.22) 0, transparent 45%),
+    linear-gradient(135deg, #d8e6ff 0%, #ffffff 50%, #ffe2e3 100%),
     var(--bg);
   min-height: 100vh;
 }
@@ -81,7 +82,7 @@ body {
   border: 1px dashed var(--line);
   border-radius: 14px;
   padding: 0.8rem;
-  background: #fbfff8;
+  background: #f5f9ff;
 }
 
 .label {
@@ -148,10 +149,14 @@ input[type="text"] {
   border: none;
   border-radius: 10px;
   padding: 0.65rem 0.85rem;
-  background: linear-gradient(135deg, var(--brand), #0b6b63);
+  background: var(--brand);
   color: white;
   font-weight: 700;
   cursor: pointer;
+}
+
+.btn:hover:not(:disabled) {
+  background: #002c77;
 }
 
 .btn:disabled {
@@ -188,7 +193,7 @@ input[type="text"] {
 
 .meter {
   margin-top: 0.85rem;
-  background: #dce8df;
+  background: #d8e6fb;
   border-radius: 999px;
   height: 12px;
   overflow: hidden;
@@ -196,7 +201,7 @@ input[type="text"] {
 
 .meter-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--brand), var(--brand-2));
+  background: var(--brand);
   transition: width 0.4s ease;
 }
 

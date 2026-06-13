@@ -17,8 +17,11 @@ function formatSeconds(totalSeconds: number): string {
 }
 
 export function ProgressPanel({ progress, maxRuntimeMinutes }: ProgressPanelProps) {
-  const total = maxRuntimeMinutes * 60;
-  const pct = Math.min(100, (progress.elapsedSeconds / total) * 100);
+  const total = Math.max(1, maxRuntimeMinutes * 60);
+  const elapsed = Number.isFinite(progress.elapsedSeconds) ? progress.elapsedSeconds : 0;
+  const rawPct = (elapsed / total) * 100;
+  const pct = Number.isFinite(rawPct) ? Math.max(0, Math.min(100, rawPct)) : 0;
+  const filesPerSecond = Number.isFinite(progress.filesPerSecond) ? progress.filesPerSecond : 0;
 
   return (
     <section className="card panel">
@@ -29,7 +32,7 @@ export function ProgressPanel({ progress, maxRuntimeMinutes }: ProgressPanelProp
         <p><span>Remaining</span><strong>~{formatSeconds(progress.remainingSeconds)}</strong></p>
         <p><span>Sites Scanned</span><strong>{progress.sitesProcessed}</strong></p>
         <p><span>Files Scanned</span><strong>{progress.filesScanned}</strong></p>
-        <p><span>Files / Sec</span><strong>{progress.filesPerSecond.toFixed(2)}</strong></p>
+        <p><span>Files / Sec</span><strong>{filesPerSecond.toFixed(2)}</strong></p>
         <p><span>Current Site</span><strong>{progress.currentSite || "-"}</strong></p>
         <p><span>Current Library</span><strong>{progress.currentLibrary || "-"}</strong></p>
       </div>

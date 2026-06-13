@@ -3,6 +3,7 @@ import { AccountInfo } from "@azure/msal-browser";
 interface HeaderBarProps {
   account: AccountInfo | null;
   isMsalEnabled: boolean;
+  isMsalReady: boolean;
   hasManualToken: boolean;
   isSigningIn: boolean;
   onSignIn: () => void;
@@ -12,6 +13,7 @@ interface HeaderBarProps {
 export function HeaderBar({
   account,
   isMsalEnabled,
+  isMsalReady,
   hasManualToken,
   isSigningIn,
   onSignIn,
@@ -34,14 +36,14 @@ export function HeaderBar({
         {isMsalEnabled ? (
           <>
             <p className="label">Current User</p>
-            <p className="value">{account?.username ?? "Not signed in"}</p>
+            <p className="value">{isMsalReady ? account?.username ?? "Not signed in" : "Initializing auth..."}</p>
             {account ? (
               <button className="btn ghost" onClick={onSignOut}>
                 Sign Out
               </button>
             ) : (
-              <button className="btn" onClick={onSignIn} disabled={isSigningIn}>
-                {isSigningIn ? "Signing In..." : "Sign In"}
+              <button className="btn" onClick={onSignIn} disabled={isSigningIn || !isMsalReady}>
+                {!isMsalReady ? "Initializing..." : isSigningIn ? "Signing In..." : "Sign In"}
               </button>
             )}
           </>
