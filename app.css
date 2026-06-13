@@ -124,7 +124,7 @@ input[type="text"] {
   border: none;
   border-radius: 10px;
   padding: .65rem 1rem;
-  background: linear-gradient(135deg, var(--brand-blue), #2e5cc8);
+  background: var(--brand-blue);
   color: #fff;
   font-family: inherit;
   font-weight: 700;
@@ -166,7 +166,7 @@ input[type="text"] {
 }
 .meter-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--brand-blue), var(--brand-white), var(--brand-red));
+  background: var(--brand-blue);
   transition: width .5s ease;
 }
 

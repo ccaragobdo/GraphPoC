@@ -106,8 +106,32 @@ export async function runScan(accessToken, config, onProgress) {
 
   const siteMap = new Map();
 
+  async function discoverAllSites() {
+    let next = "/sites/getAllSites?$top=999";
+    while (next && ok()) {
+      const payload = await client.getJson(next);
+      const found = payload.value || [];
+      for (const s of found) {
+        if (s.id && !siteMap.has(s.id)) {
+          siteMap.set(s.id, s);
+        }
+        if (siteMap.size >= maxSites) {
+          return;
+        }
+      }
+      next = payload["@odata.nextLink"] || null;
+    }
+  }
+
+  try {
+    await discoverAllSites();
+  } catch (e) {
+    notes.push(`getAllSites not available for this token; falling back to search discovery: ${e.message}`);
+  }
+
   for (const term of terms) {
     if (!ok()) break;
+    if (siteMap.size >= maxSites) break;
     try {
       const found = await client.getAllPages(
         `/sites?search=${encodeURIComponent(term)}&$top=25`,
@@ -124,6 +148,7 @@ export async function runScan(accessToken, config, onProgress) {
   }
 
   const siteList = [...siteMap.values()].slice(0, maxSites);
+  notes.push(`Discovered ${siteList.length} SharePoint site(s) before scanning drives.`);
   if (!siteList.length) {
     notes.push(config.includeOneDrive
       ? "No SharePoint sites found — will try OneDrive only."
