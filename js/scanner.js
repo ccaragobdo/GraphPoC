@@ -151,9 +151,12 @@ async function scanFolder(client, driveId, itemId, depth, ctx) {
             );
             ctx.siteExposure.folderScopesChecked += 1;
           } catch (e) {
-            ctx.notes.push(
-              `Top-level folder permission check failed for '${ctx.siteName}/${ctx.libName}/${item.name}': ${e.message}`
-            );
+            const errMsg = String(e.message || "").toLowerCase();
+            if (!errMsg.includes("403") && !errMsg.includes("accessdenied")) {
+              ctx.notes.push(
+                `Top-level folder permission check failed for '${ctx.siteName}/${ctx.libName}/${item.name}': ${e.message}`
+              );
+            }
           }
         }
 
@@ -286,7 +289,10 @@ export async function runScan(accessToken, config, onProgress) {
       );
       siteExposure.siteScopesChecked += 1;
     } catch (e) {
-      notes.push(`Site permission check failed for '${siteName}': ${e.message}`);
+      const errMsg = String(e.message || "").toLowerCase();
+      if (!errMsg.includes("403") && !errMsg.includes("accessdenied")) {
+        notes.push(`Site permission check failed for '${siteName}': ${e.message}`);
+      }
     }
 
     try {
@@ -312,7 +318,10 @@ export async function runScan(accessToken, config, onProgress) {
         );
         siteExposure.libraryScopesChecked += 1;
       } catch (e) {
-        notes.push(`Library root permission check failed for '${siteName}/${libName}': ${e.message}`);
+        const errMsg = String(e.message || "").toLowerCase();
+        if (!errMsg.includes("403") && !errMsg.includes("accessdenied")) {
+          notes.push(`Library root permission check failed for '${siteName}/${libName}': ${e.message}`);
+        }
       }
 
       try {
@@ -350,7 +359,10 @@ export async function runScan(accessToken, config, onProgress) {
         );
         siteExposure.libraryScopesChecked += 1;
       } catch (e) {
-        notes.push(`OneDrive library root permission check failed: ${e.message}`);
+        const errMsg = String(e.message || "").toLowerCase();
+        if (!errMsg.includes("403") && !errMsg.includes("accessdenied")) {
+          notes.push(`OneDrive library root permission check failed: ${e.message}`);
+        }
       }
 
       await scanFolder(client, meDrive.id, "root", 0, {
