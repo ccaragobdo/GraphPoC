@@ -5,11 +5,12 @@
 import { createElement, Component, useState, useCallback, useEffect } from "react";
 import { createRoot }                           from "react-dom/client";
 import htm                                      from "htm";
-import { runScan }                              from "./scanner.js?v=20260613d";
+import { runScan }                              from "./scanner.js?v=20260613e";
 import {
   summarize,
   mergeSiteExposureIntoSummary,
   exportSummaryBySiteCsv,
+  exportSiteExposureCsv,
   exportFullJson
 } from "./analysis.js";
 
@@ -187,7 +188,7 @@ function ProgressPanel({ progress, maxRuntimeMinutes, visible }) {
 
 function ResultsPanel({ result }) {
   if (!result) return null;
-  const { summary, notes } = result;
+  const { summary, notes, siteExposureBySite } = result;
 
   return html`
     <section className="card panel">
@@ -209,6 +210,7 @@ function ResultsPanel({ result }) {
             <span>
               ${s.files} files | stale &gt;365: ${s.stale365} | anyone links: ${(s.anyoneLinks ?? 0)}
               | everyone/all users grants: ${(s.everyoneAllUsersGrants ?? 0)}
+              | scopes checked: ${(s.permissionsChecked ?? 0)}
             </span>
           </li>`)}
       </ul>
@@ -234,6 +236,7 @@ function ResultsPanel({ result }) {
 
       <div className="button-row">
         <button className="btn ghost" onClick=${() => exportSummaryBySiteCsv(summary)}>⬇ summary_by_site.csv</button>
+        <button className="btn ghost" onClick=${() => exportSiteExposureCsv(siteExposureBySite)}>⬇ summary_site_exposure.csv</button>
         <button className="btn ghost" onClick=${() => exportFullJson(result)}>⬇ full_results.json</button>
       </div>
     </section>`;

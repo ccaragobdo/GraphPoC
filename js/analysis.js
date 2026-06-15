@@ -71,11 +71,14 @@ export function mergeSiteExposureIntoSummary(summary, siteExposureBySite) {
     const exposure = exposureMap.get(`${site.siteName}||${site.siteUrl}`);
     return {
       ...site,
+      siteScopesChecked: exposure?.siteScopesChecked ?? 0,
+      libraryScopesChecked: exposure?.libraryScopesChecked ?? 0,
+      folderScopesChecked: exposure?.folderScopesChecked ?? 0,
       anyoneLinks: exposure?.anyoneLinks ?? 0,
       organizationLinks: exposure?.organizationLinks ?? 0,
       everyoneAllUsersGrants: exposure?.everyoneAllUsersGrants ?? 0,
-      filesWithAnyoneLinks: exposure?.filesWithAnyoneLinks ?? 0,
-      filesWithEveryoneAllUsers: exposure?.filesWithEveryoneAllUsers ?? 0,
+      resourcesWithAnyoneLinks: exposure?.resourcesWithAnyoneLinks ?? 0,
+      resourcesWithEveryoneAllUsers: exposure?.resourcesWithEveryoneAllUsers ?? 0,
       permissionsChecked: exposure?.permissionsChecked ?? 0
     };
   });
@@ -113,14 +116,34 @@ export function exportSummaryBySiteCsv(summary) {
     SiteName: s.siteName, SiteUrl: s.siteUrl,
     Files: s.files, TotalSize: s.totalSize,
     Stale90: s.stale90, Stale180: s.stale180, Stale365: s.stale365,
+    SiteScopesChecked: s.siteScopesChecked ?? 0,
+    LibraryScopesChecked: s.libraryScopesChecked ?? 0,
+    FolderScopesChecked: s.folderScopesChecked ?? 0,
     AnyoneLinks: s.anyoneLinks ?? 0,
     OrganizationLinks: s.organizationLinks ?? 0,
     EveryoneOrAllUsersGrants: s.everyoneAllUsersGrants ?? 0,
-    FilesWithAnyoneLinks: s.filesWithAnyoneLinks ?? 0,
-    FilesWithEveryoneOrAllUsers: s.filesWithEveryoneAllUsers ?? 0,
+    ResourcesWithAnyoneLinks: s.resourcesWithAnyoneLinks ?? 0,
+    ResourcesWithEveryoneOrAllUsers: s.resourcesWithEveryoneAllUsers ?? 0,
     PermissionsChecked: s.permissionsChecked ?? 0
   }));
   download("summary_by_site.csv", toCsv(rows), "text/csv;charset=utf-8");
+}
+
+export function exportSiteExposureCsv(siteExposureBySite) {
+  const rows = (siteExposureBySite || []).map((s) => ({
+    SiteName: s.siteName,
+    SiteUrl: s.siteUrl,
+    SiteScopesChecked: s.siteScopesChecked ?? 0,
+    LibraryScopesChecked: s.libraryScopesChecked ?? 0,
+    FolderScopesChecked: s.folderScopesChecked ?? 0,
+    AnyoneLinks: s.anyoneLinks ?? 0,
+    OrganizationLinks: s.organizationLinks ?? 0,
+    EveryoneOrAllUsersGrants: s.everyoneAllUsersGrants ?? 0,
+    ResourcesWithAnyoneLinks: s.resourcesWithAnyoneLinks ?? 0,
+    ResourcesWithEveryoneOrAllUsers: s.resourcesWithEveryoneAllUsers ?? 0,
+    PermissionsChecked: s.permissionsChecked ?? 0
+  }));
+  download("summary_site_exposure.csv", toCsv(rows), "text/csv;charset=utf-8");
 }
 
 export function exportFullJson(result) {

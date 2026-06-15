@@ -19,12 +19,15 @@ function ensureSiteExposure(exposureMap, siteName, siteUrl) {
     exposureMap.set(key, {
       siteName,
       siteUrl,
+      siteScopesChecked: 0,
+      libraryScopesChecked: 0,
+      folderScopesChecked: 0,
       permissionsChecked: 0,
       anyoneLinks: 0,
       organizationLinks: 0,
       everyoneAllUsersGrants: 0,
-      filesWithAnyoneLinks: 0,
-      filesWithEveryoneAllUsers: 0
+      resourcesWithAnyoneLinks: 0,
+      resourcesWithEveryoneAllUsers: 0
     });
   }
   return exposureMap.get(key);
@@ -64,14 +67,14 @@ function isEveryoneOrAllUsersName(name) {
   return value.includes("everyone") || value.includes("all users");
 }
 
-async function collectItemExposure(client, driveId, itemId, exposure) {
+async function collectExposureForEndpoint(client, endpoint, exposure) {
   const permissions = await client.getAllPages(
-    `/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(itemId)}/permissions?$top=200`,
+    `${endpoint}?$top=200`,
     p => p.value || []
   );
 
-  let fileHasAnyoneLink = false;
-  let fileHasEveryoneGroup = false;
+  let resourceHasAnyoneLink = false;
+  let resourceHasEveryoneGroup = false;
 
   for (const permission of permissions) {
     exposure.permissionsChecked += 1;
@@ -79,7 +82,7 @@ async function collectItemExposure(client, driveId, itemId, exposure) {
     const scope = String(permission?.link?.scope || "").toLowerCase();
     if (scope === "anonymous") {
       exposure.anyoneLinks += 1;
-      fileHasAnyoneLink = true;
+      resourceHasAnyoneLink = true;
     }
     if (scope === "organization") {
       exposure.organizationLinks += 1;
@@ -88,15 +91,15 @@ async function collectItemExposure(client, driveId, itemId, exposure) {
     const names = collectPrincipalNames(permission);
     if (names.some(isEveryoneOrAllUsersName)) {
       exposure.everyoneAllUsersGrants += 1;
-      fileHasEveryoneGroup = true;
+      resourceHasEveryoneGroup = true;
     }
   }
 
-  if (fileHasAnyoneLink) {
-    exposure.filesWithAnyoneLinks += 1;
+  if (resourceHasAnyoneLink) {
+    exposure.resourcesWithAnyoneLinks += 1;
   }
-  if (fileHasEveryoneGroup) {
-    exposure.filesWithEveryoneAllUsers += 1;
+  if (resourceHasEveryoneGroup) {
+    exposure.resourcesWithEveryoneAllUsers += 1;
   }
 }
 
@@ -137,17 +140,23 @@ async function scanFolder(client, driveId, itemId, depth, ctx) {
         });
         ctx.siteCount.v++;
         ctx.total.v++;
-
-        try {
-          await collectItemExposure(client, driveId, item.id, ctx.siteExposure);
-        } catch (e) {
-          ctx.notes.push(
-            `Permission check failed for '${ctx.siteName}/${ctx.libName}/${item.name}': ${e.message}`
-          );
-        }
-
         ctx.tick();
       } else if (item.folder && depth < ctx.cfg.maxFolderDepth) {
+        if (depth === 0) {
+          try {
+            await collectExposureForEndpoint(
+              client,
+              `/drives/${encodeURIComponent(driveId)}/items/${encodeURIComponent(item.id)}/permissions`,
+              ctx.siteExposure
+            );
+            ctx.siteExposure.folderScopesChecked += 1;
+          } catch (e) {
+            ctx.notes.push(
+              `Top-level folder permission check failed for '${ctx.siteName}/${ctx.libName}/${item.name}': ${e.message}`
+            );
+          }
+        }
+
         await scanFolder(client, driveId, item.id, depth + 1, ctx);
       }
     }
@@ -268,6 +277,17 @@ export async function runScan(accessToken, config, onProgress) {
     let   drives   = [];
 
     try {
+      await collectExposureForEndpoint(
+        client,
+        `/sites/${encodeURIComponent(site.id)}/permissions`,
+        siteExposure
+      );
+      siteExposure.siteScopesChecked += 1;
+    } catch (e) {
+      notes.push(`Site permission check failed for '${siteName}': ${e.message}`);
+    }
+
+    try {
       drives = await client.getAllPages(
         `/sites/${encodeURIComponent(site.id)}/drives?$top=50`,
         p => p.value || []
@@ -281,6 +301,17 @@ export async function runScan(accessToken, config, onProgress) {
       const libName   = drive.name || drive.id;
       const siteCount = { v: 0 };
       emit("Scanning", siteName, libName);
+
+      try {
+        await collectExposureForEndpoint(
+          client,
+          `/drives/${encodeURIComponent(drive.id)}/root/permissions`,
+          siteExposure
+        );
+        siteExposure.libraryScopesChecked += 1;
+      } catch (e) {
+        notes.push(`Library root permission check failed for '${siteName}/${libName}': ${e.message}`);
+      }
 
       try {
         await scanFolder(client, drive.id, "root", 0, {
@@ -309,6 +340,17 @@ export async function runScan(accessToken, config, onProgress) {
       const siteCount = { v: 0 };
       emit("Scanning", siteName, libName, true);
 
+      try {
+        await collectExposureForEndpoint(
+          client,
+          `/drives/${encodeURIComponent(meDrive.id)}/root/permissions`,
+          siteExposure
+        );
+        siteExposure.libraryScopesChecked += 1;
+      } catch (e) {
+        notes.push(`OneDrive library root permission check failed: ${e.message}`);
+      }
+
       await scanFolder(client, meDrive.id, "root", 0, {
         siteName, siteUrl, libName,
         cfg: config, records, notes, siteExposure, siteCount, total,
@@ -322,6 +364,7 @@ export async function runScan(accessToken, config, onProgress) {
   }
 
   if (timeLimitReached) notes.push("Time limit reached — returning partial results.");
+  notes.push("Sharing exposure checks are limited to site scope, library root scope, and top-level folders.");
 
   emit("Aggregating", "", "", true);
 
