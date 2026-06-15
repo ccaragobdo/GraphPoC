@@ -5,7 +5,7 @@
 import { createElement, Component, useState, useCallback, useEffect } from "react";
 import { createRoot }                           from "react-dom/client";
 import htm                                      from "htm";
-import { runScan }                              from "./scanner.js?v=20260615b";
+import { runScan }                              from "./scanner.js?v=20260615c";
 import {
   summarize,
   mergeSiteExposureIntoSummary,
@@ -14,6 +14,7 @@ import {
   exportFullJson
 } from "./analysis.js";
 
+import { runPermissionAnalysis }                from "./scanner.js?v=20260615c";
 // Bind htm to React.createElement — gives us html`` template literals
 const html = htm.bind(createElement);
 
@@ -157,6 +158,9 @@ function ConfigPanel({ config, onChange, disabled, onStart, hasToken }) {
         <button className="btn" type="button" onClick=${onStart} disabled=${disabled || !hasToken}>
           ${disabled ? "Scan Running…" : hasToken ? "▶ Start Scan" : "Paste a token first"}
         </button>
+        <p className="caption">
+          Step 3 (Analyze Sharing &amp; Permissions) appears in Results after this scan completes.
+        </p>
       </div>
     </section>`;
 }
@@ -235,6 +239,14 @@ function ResultsPanel({ result }) {
       </p>
 
       <div className="button-row">
+          ${result && !result.isAnalyzingPermissions ? html`
+            <button className="btn" onClick=${result.onAnalyzePermissions}>
+              ▶ Step 3: Analyze Sharing &amp; Permissions
+            </button>
+          ` : null}
+          ${result?.isAnalyzingPermissions ? html`
+            <button className="btn" disabled>⏳ Analyzing Permissions…</button>
+          ` : null}
         <button className="btn ghost" onClick=${() => exportSummaryBySiteCsv(summary)}>⬇ summary_by_site.csv</button>
         <button className="btn ghost" onClick=${() => exportSiteExposureCsv(siteExposureBySite)}>⬇ summary_site_exposure.csv</button>
         <button className="btn ghost" onClick=${() => exportFullJson(result)}>⬇ full_results.json</button>
@@ -254,6 +266,41 @@ function App() {
 
   const hasToken = token.trim().length > 20;
 
+    const startPermissionAnalysis = useCallback(async (baseResult) => {
+      if (!baseResult) return;
+      setResult(prev => ({ ...prev, isAnalyzingPermissions: true }));
+      setProgress({ ...IDLE_PROGRESS, phase: "Analyzing Permissions" });
+      try {
+        const uniqueSites = new Map();
+        for (const record of baseResult.records) {
+          const key = `${record.siteName}||${record.siteUrl}`;
+          if (!uniqueSites.has(key)) {
+            uniqueSites.set(key, {
+              id: key,
+              displayName: record.siteName,
+              webUrl: record.siteUrl,
+              name: record.siteName
+            });
+          }
+        }
+        const siteList = [...uniqueSites.values()];
+        const permAnalysis = await runPermissionAnalysis(token.trim(), siteList, p => 
+          setProgress(prev => ({ ...prev, ...p }))
+        );
+        setResult(prev => ({
+          ...prev,
+          isAnalyzingPermissions: false,
+          siteExposureBySite: permAnalysis.siteExposureBySite,
+          summary: mergeSiteExposureIntoSummary(prev.summary, permAnalysis.siteExposureBySite),
+          notes: [...(prev.notes || []), ...permAnalysis.notes]
+        }));
+        setProgress(prev => ({ ...prev, phase: "Permissions Complete" }));
+      } catch (e) {
+        setError(`Permission analysis error: ${e.message}`);
+        setResult(prev => ({ ...prev, isAnalyzingPermissions: false }));
+      }
+    }, [token]);
+
   const startScan = useCallback(async () => {
     const t = token.trim();
     if (!t) { setError("Paste a Graph bearer token first."); return; }
@@ -269,14 +316,19 @@ function App() {
         summarize(scanData.records),
         scanData.siteExposureBySite || []
       );
-      setResult({ ...scanData, summary });
+        setResult({ 
+          ...scanData, 
+          summary,
+          isAnalyzingPermissions: false,
+          onAnalyzePermissions: () => startPermissionAnalysis(scanData)
+        });
       setProgress(prev => ({ ...prev, phase: "Complete" }));
     } catch (e) {
       setError(`Scan error: ${e.message}`);
     } finally {
       setIsScanning(false);
     }
-  }, [token, config]);
+    }, [token, config, startPermissionAnalysis]);
 
   useEffect(() => {
     function onWindowError(event) {
