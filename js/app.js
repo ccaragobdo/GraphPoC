@@ -5,7 +5,7 @@
 import { createElement, Component, useState, useCallback, useEffect } from "react";
 import { createRoot }                           from "react-dom/client";
 import htm                                      from "htm";
-import { runScan }                              from "./scanner.js?v=20260613e";
+import { runScan }                              from "./scanner.js?v=20260615a";
 import {
   summarize,
   mergeSiteExposureIntoSummary,

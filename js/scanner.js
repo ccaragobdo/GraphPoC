@@ -212,48 +212,50 @@ export async function runScan(accessToken, config, onProgress) {
 
   const siteMap = new Map();
 
-  async function discoverAllSites() {
-    let next = "/sites/getAllSites?$top=999";
-    while (next && ok()) {
-      const payload = await client.getJson(next);
-      const found = payload.value || [];
-      for (const s of found) {
-        if (s.id && !siteMap.has(s.id)) {
-          siteMap.set(s.id, s);
-        }
-        if (siteMap.size >= maxSites) {
-          return;
-        }
+  async function collectSitesFromEndpoint(url) {
+    const found = await client.getAllPages(url, p => p.value || []);
+    for (const s of found) {
+      if (s.id && !siteMap.has(s.id)) {
+        siteMap.set(s.id, s);
       }
-      next = payload["@odata.nextLink"] || null;
+      if (siteMap.size >= maxSites) {
+        break;
+      }
     }
   }
 
-  let allSiteDiscoveryWorked = false;
+  let usedGetAllSites = false;
+  let usedFallback = "";
+
   try {
-    await discoverAllSites();
-    allSiteDiscoveryWorked = true;
-  } catch (e) {
-    notes.push(`getAllSites discovery failed: ${e.message}`);
+    await collectSitesFromEndpoint("/sites/getAllSites?$top=999");
+    usedGetAllSites = true;
+  } catch {
+    notes.push("getAllSites is unavailable for this token; using fallback site discovery.");
   }
 
-  if (!allSiteDiscoveryWorked) {
-    try {
-      const fallbackSites = await client.getAllPages(
-        "/sites?$top=999",
-        p => p.value || []
-      );
-      for (const s of fallbackSites) {
-        if (s.id && !siteMap.has(s.id)) {
-          siteMap.set(s.id, s);
-        }
-        if (siteMap.size >= maxSites) {
-          break;
-        }
+  if (!usedGetAllSites && siteMap.size < maxSites) {
+    const fallbackEndpoints = [
+      { name: "sites-list", url: "/sites?$top=999" },
+      { name: "followed-sites", url: "/me/followedSites?$top=999" },
+      { name: "site-search", url: "/sites?search=*&$top=999" }
+    ];
+
+    for (const fallback of fallbackEndpoints) {
+      if (siteMap.size >= maxSites) {
+        break;
       }
-      notes.push("Used /sites fallback discovery because getAllSites was unavailable.");
-    } catch (e) {
-      notes.push(`Fallback /sites discovery failed: ${e.message}`);
+
+      try {
+        await collectSitesFromEndpoint(fallback.url);
+        usedFallback = fallback.name;
+      } catch {
+        // Try the next fallback endpoint.
+      }
+    }
+
+    if (usedFallback) {
+      notes.push(`Used ${usedFallback} fallback discovery path.`);
     }
   }
 
