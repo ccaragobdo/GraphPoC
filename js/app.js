@@ -66,7 +66,7 @@ function Header() {
       <h1>Data Architecture Scanner</h1>
       <p className="caption">Scans only content accessible to the delegated token.</p>
       <p className="caption strong">This is a time-based sampling assessment, not a full inventory.</p>
-      <a href="about.html" target="_blank" rel="noreferrer" className="caption" style="margin-top:.4rem;display:inline-block;">ℹ What does each step do? →</a>
+      <a href="about.html" target="_blank" rel="noreferrer" className="caption" style=${"margin-top:.4rem;display:inline-block;"}>ℹ What does each step do? →</a>
     </header>`;
 }
 
@@ -204,7 +204,7 @@ function ProgressPanel({ progress, maxRuntimeMinutes, visible }) {
         <p><span>Current Library</span><strong>${progress.currentLibrary || "—"}</strong></p>
       </div>
       <div className="meter" role="progressbar" aria-valuenow=${Math.round(pct)} aria-valuemin="0" aria-valuemax="100">
-        <div className="meter-fill" style=${{ width: pct + "%" }} />
+        <div className="meter-fill" style=${`width:${pct}%`} />
       </div>
       ${progress.timeLimitReached
         ? html`<p className="warning">⏱ Time limit reached — returning partial results.</p>`
