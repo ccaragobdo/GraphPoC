@@ -270,13 +270,13 @@ function ResultsPanel({ result }) {
 
 function IndependentStepsPanel({ hasToken, runningStep, onRunStep, stepResults }) {
   const steps = [
-    { id: 3, title: "Step 3 — Sharing & Permissions Exposure" },
-    { id: 4, title: "Step 4 — Sensitivity Labels & Purview Integration" },
-    { id: 5, title: "Step 5 — Sensitive Information Types (SITs)" },
-    { id: 6, title: "Step 6 — Data Loss Prevention (DLP)" },
-    { id: 7, title: "Step 7 — SharePoint Information Architecture" },
-    { id: 8, title: "Step 8 — Search Readiness Signals" },
-    { id: 9, title: "Step 9 — Lifecycle & Records Management" }
+    { id: 3, title: "Step 3 — Sharing & Permissions Exposure",          runnable: true  },
+    { id: 4, title: "Step 4 — Sensitivity Labels & Purview Integration", runnable: true  },
+    { id: 5, title: "Step 5 — Sensitive Information Types (SITs)",       runnable: false },
+    { id: 6, title: "Step 6 — Data Loss Prevention (DLP)",               runnable: false },
+    { id: 7, title: "Step 7 — SharePoint Information Architecture",      runnable: true  },
+    { id: 8, title: "Step 8 — Search Readiness Signals",                 runnable: true  },
+    { id: 9, title: "Step 9 — Lifecycle & Records Management",           runnable: true  }
   ];
 
   function metricEntries(metrics) {
@@ -297,9 +297,11 @@ function IndependentStepsPanel({ hasToken, runningStep, onRunStep, stepResults }
           <div className="card panel" key=${step.id}>
             <h3>${step.title}</h3>
             <div className="button-row">
-              <button className="btn" onClick=${() => onRunStep(step.id)} disabled=${!canRun}>
-                ${isRunning ? "Running..." : `▶ Run ${step.title.split("—")[0].trim()}`}
-              </button>
+              ${step.runnable ? html`
+                <button className="btn" onClick=${() => onRunStep(step.id)} disabled=${!canRun}>
+                  ${isRunning ? "Running..." : `▶ Run ${step.title.split("—")[0].trim()}`}
+                </button>
+              ` : html`<p className="caption">Requires Purview — not runnable via this Graph token path.</p>`}
               ${stepResult ? html`
                 <button className="btn ghost" onClick=${() => onRunStep(step.id, "json")}>⬇ step_${step.id}_results.json</button>
                 ${stepResult.rows?.length ? html`
@@ -339,7 +341,12 @@ function App() {
   const [config,     setConfig]     = useState(DEFAULT_CONFIG);
   const [isScanning, setIsScanning] = useState(false);
   const [runningStep, setRunningStep] = useState(null);
-  const [stepResults, setStepResults] = useState({});
+  const [stepResults, setStepResults] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem("dga_stepResults");
+      return saved ? JSON.parse(saved) : {};
+    } catch { return {}; }
+  });
   const [progress,   setProgress]   = useState(IDLE_PROGRESS);
   const [result,     setResult]     = useState(null);
   const [error,      setError]      = useState("");
@@ -410,7 +417,11 @@ function App() {
         } : prev);
       }
 
-      setStepResults(prev => ({ ...prev, [stepId]: data }));
+      setStepResults(prev => {
+        const next = { ...prev, [stepId]: data };
+        try { sessionStorage.setItem("dga_stepResults", JSON.stringify(next)); } catch {}
+        return next;
+      });
       setProgress(prev => ({ ...prev, phase: `Step ${stepId} Complete` }));
     } catch (e) {
       setError(`Step ${stepId} failed: ${e.message}`);
