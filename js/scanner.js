@@ -339,117 +339,117 @@ export async function runScan(accessToken, config, onProgress) {
   };
 }
 
-  // ── Step 3 (Optional): Permission & Sharing Exposure Analysis ────
-  export async function runPermissionAnalysis(accessToken, config, onProgress) {
-    const client = createGraphClient(accessToken);
-    const startMs = Date.now();
-    const notes = [];
-    const exposureBySite = new Map();
-    let processed = 0;
-    const maxSites = config?.unlimitedSites ? Infinity : (config?.maxSites || 25);
-    const siteList = await discoverSitesWithClient(client, maxSites, notes);
+// ── Step 3 (Optional): Permission & Sharing Exposure Analysis ────
+export async function runPermissionAnalysis(accessToken, config, onProgress) {
+  const client = createGraphClient(accessToken);
+  const startMs = Date.now();
+  const notes = [];
+  const exposureBySite = new Map();
+  let processed = 0;
+  const maxSites = config?.unlimitedSites ? Infinity : (config?.maxSites || 25);
+  const siteList = await discoverSitesWithClient(client, maxSites, notes);
 
-    notes.push(`Step 3 discovered ${siteList.length} site(s) for sharing/permission analysis.`);
+  notes.push(`Step 3 discovered ${siteList.length} site(s) for sharing/permission analysis.`);
 
-    function emit(site = "", lib = "") {
-      const now = Date.now();
-      const elapsed = (now - startMs) / 1000;
-      onProgress({
-        phase: "Analyzing Permissions",
-        elapsedSeconds: elapsed,
-        sitesProcessed: processed,
-        currentSite: site,
-        currentLibrary: lib
-      });
+  function emit(site = "", lib = "") {
+    const now = Date.now();
+    const elapsed = (now - startMs) / 1000;
+    onProgress({
+      phase: "Analyzing Permissions",
+      elapsedSeconds: elapsed,
+      sitesProcessed: processed,
+      currentSite: site,
+      currentLibrary: lib
+    });
+  }
+
+  for (const site of siteList) {
+    const siteName = site.displayName || site.name || site.id;
+    const siteUrl = site.webUrl || "";
+    const siteExposure = ensureSiteExposure(exposureBySite, siteName, siteUrl);
+
+    // Check site-level permissions
+    try {
+      await collectExposureForEndpoint(
+        client,
+        `/sites/${encodeURIComponent(site.id)}/permissions`,
+        siteExposure
+      );
+      siteExposure.siteScopesChecked += 1;
+    } catch (e) {
+      const errMsg = String(e.message || "").toLowerCase();
+      if (!errMsg.includes("403") && !errMsg.includes("accessdenied")) {
+        notes.push(`Site permission check failed for '${siteName}': ${e.message}`);
+      }
     }
 
-    for (const site of siteList) {
-      const siteName = site.displayName || site.name || site.id;
-      const siteUrl = site.webUrl || "";
-      const siteExposure = ensureSiteExposure(exposureBySite, siteName, siteUrl);
+    // Get drives and check library permissions
+    let drives = [];
+    try {
+      drives = await client.getAllPages(
+        `/sites/${encodeURIComponent(site.id)}/drives?$top=50`,
+        p => p.value || []
+      );
+    } catch (e) {
+      notes.push(`Could not list drives for '${siteName}': ${e.message}`);
+    }
 
-      // Check site-level permissions
+    for (const drive of drives) {
+      const libName = drive.name || drive.id;
+      emit(siteName, libName);
+
       try {
         await collectExposureForEndpoint(
           client,
-          `/sites/${encodeURIComponent(site.id)}/permissions`,
+          `/drives/${encodeURIComponent(drive.id)}/root/permissions`,
           siteExposure
         );
-        siteExposure.siteScopesChecked += 1;
+        siteExposure.libraryScopesChecked += 1;
       } catch (e) {
         const errMsg = String(e.message || "").toLowerCase();
         if (!errMsg.includes("403") && !errMsg.includes("accessdenied")) {
-          notes.push(`Site permission check failed for '${siteName}': ${e.message}`);
+          notes.push(`Library root permission check failed for '${siteName}/${libName}': ${e.message}`);
         }
       }
 
-      // Get drives and check library permissions
-      let drives = [];
+      // Check top-level folders
       try {
-        drives = await client.getAllPages(
-          `/sites/${encodeURIComponent(site.id)}/drives?$top=50`,
+        const items = await client.getAllPages(
+          `/drives/${encodeURIComponent(drive.id)}/root/children?$top=200`,
           p => p.value || []
         );
-      } catch (e) {
-        notes.push(`Could not list drives for '${siteName}': ${e.message}`);
-      }
 
-      for (const drive of drives) {
-        const libName = drive.name || drive.id;
-        emit(siteName, libName);
-
-        try {
-          await collectExposureForEndpoint(
-            client,
-            `/drives/${encodeURIComponent(drive.id)}/root/permissions`,
-            siteExposure
-          );
-          siteExposure.libraryScopesChecked += 1;
-        } catch (e) {
-          const errMsg = String(e.message || "").toLowerCase();
-          if (!errMsg.includes("403") && !errMsg.includes("accessdenied")) {
-            notes.push(`Library root permission check failed for '${siteName}/${libName}': ${e.message}`);
-          }
-        }
-
-        // Check top-level folders
-        try {
-          const items = await client.getAllPages(
-            `/drives/${encodeURIComponent(drive.id)}/root/children?$top=200`,
-            p => p.value || []
-          );
-
-          for (const item of items) {
-            if (item.folder) {
-              try {
-                await collectExposureForEndpoint(
-                  client,
-                  `/drives/${encodeURIComponent(drive.id)}/items/${encodeURIComponent(item.id)}/permissions`,
-                  siteExposure
-                );
-                siteExposure.folderScopesChecked += 1;
-              } catch (e) {
-                const errMsg = String(e.message || "").toLowerCase();
-                if (!errMsg.includes("403") && !errMsg.includes("accessdenied")) {
-                  notes.push(`Folder permission check failed for '${siteName}/${libName}/${item.name}': ${e.message}`);
-                }
+        for (const item of items) {
+          if (item.folder) {
+            try {
+              await collectExposureForEndpoint(
+                client,
+                `/drives/${encodeURIComponent(drive.id)}/items/${encodeURIComponent(item.id)}/permissions`,
+                siteExposure
+              );
+              siteExposure.folderScopesChecked += 1;
+            } catch (e) {
+              const errMsg = String(e.message || "").toLowerCase();
+              if (!errMsg.includes("403") && !errMsg.includes("accessdenied")) {
+                notes.push(`Folder permission check failed for '${siteName}/${libName}/${item.name}': ${e.message}`);
               }
             }
           }
-        } catch (e) {
-          // Silent fail on folder enumeration
         }
+      } catch (e) {
+        // Silent fail on folder enumeration
       }
-
-      processed++;
-      emit(siteName, "");
     }
 
-    return {
-      siteExposureBySite: [...exposureBySite.values()],
-      discoveredSites: siteList,
-      notes,
-      startedAt: new Date(startMs).toISOString(),
-      finishedAt: new Date().toISOString()
-    };
+    processed++;
+    emit(siteName, "");
   }
+
+  return {
+    siteExposureBySite: [...exposureBySite.values()],
+    discoveredSites: siteList,
+    notes,
+    startedAt: new Date(startMs).toISOString(),
+    finishedAt: new Date().toISOString()
+  };
+}
