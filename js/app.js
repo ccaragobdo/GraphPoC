@@ -5,7 +5,7 @@
 import { createElement, Component, useState, useCallback, useEffect } from "react";
 import { createRoot }                           from "react-dom/client";
 import htm                                      from "htm";
-import { runScan, runPermissionAnalysis }       from "./scanner.js?v=20260615d";
+import { runScan, runPermissionAnalysis }       from "./scanner.js?v=20260616b";
 import {
   summarize,
   mergeSiteExposureIntoSummary,
@@ -21,7 +21,7 @@ import {
   runStep7InformationArchitecture,
   runStep8SearchReadiness,
   runStep9Lifecycle
-} from "./assessments.js";
+} from "./assessments.js?v=20260616b";
 // Bind htm to React.createElement — gives us html`` template literals
 const html = htm.bind(createElement);
 
@@ -539,5 +539,5 @@ class AppErrorBoundary extends Component {
 
 // ── Mount ─────────────────────────────────────────────────────
 createRoot(document.getElementById("root")).render(
-  html`<${AppErrorBoundary}><${App} /><//>`
+  html`<${AppErrorBoundary}><${App} /></${AppErrorBoundary}>`
 );

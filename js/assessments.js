@@ -1,5 +1,5 @@
 import { createGraphClient } from "./graph.js";
-import { discoverSites } from "./scanner.js?v=20260615d";
+import { discoverSites } from "./scanner.js?v=20260616b";
 
 const DEFAULT_UNSUPPORTED_EXTENSIONS = new Set(["exe", "dll", "iso", "tmp", "zip", "rar", "7z", "bak", "pst"]);
 
