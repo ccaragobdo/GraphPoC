@@ -149,3 +149,7 @@ export function exportSiteExposureCsv(siteExposureBySite) {
 export function exportFullJson(result) {
   download("full_results.json", JSON.stringify(result, null, 2), "application/json;charset=utf-8");
 }
+
+export function exportRowsCsv(filename, rows) {
+  download(filename, toCsv(rows || []), "text/csv;charset=utf-8");
+}

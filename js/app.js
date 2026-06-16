@@ -5,16 +5,23 @@
 import { createElement, Component, useState, useCallback, useEffect } from "react";
 import { createRoot }                           from "react-dom/client";
 import htm                                      from "htm";
-import { runScan }                              from "./scanner.js?v=20260615c";
+import { runScan, runPermissionAnalysis }       from "./scanner.js?v=20260615d";
 import {
   summarize,
   mergeSiteExposureIntoSummary,
   exportSummaryBySiteCsv,
   exportSiteExposureCsv,
-  exportFullJson
+  exportFullJson,
+  exportRowsCsv
 } from "./analysis.js";
-
-import { runPermissionAnalysis }                from "./scanner.js?v=20260615c";
+import {
+  runStep4Sensitivity,
+  runStep5SIT,
+  runStep6DLP,
+  runStep7InformationArchitecture,
+  runStep8SearchReadiness,
+  runStep9Lifecycle
+} from "./assessments.js";
 // Bind htm to React.createElement — gives us html`` template literals
 const html = htm.bind(createElement);
 
@@ -28,7 +35,9 @@ const DEFAULT_CONFIG = {
   maxTotalFiles:        5000,
   unlimitedFiles:       false,
   maxFolderDepth:       2,
-  includeOneDrive:      true
+  includeOneDrive:      true,
+  maxSampleFiles:       2000,
+  lifecycleDays:        180
 };
 
 const IDLE_PROGRESS = {
@@ -53,10 +62,11 @@ function Header() {
       className="bdo-logo"
     />`}
     <header className="card hero">
-      <p className="kicker">Microsoft 365 FAST Assessment</p>
-      <h1>Content Staleness Sampling Scanner</h1>
+      <p className="kicker">BDO Data Governance Assessment</p>
+      <h1>Data Architecture Scanner</h1>
       <p className="caption">Scans only content accessible to the delegated token.</p>
       <p className="caption strong">This is a time-based sampling assessment, not a full inventory.</p>
+      <a href="about.html" target="_blank" rel="noreferrer" className="caption" style="margin-top:.4rem;display:inline-block;">ℹ What does each step do? →</a>
     </header>`;
 }
 
@@ -150,6 +160,18 @@ function ConfigPanel({ config, onChange, disabled, onStart, hasToken }) {
             onChange=${e => set("maxFolderDepth", Number(e.target.value))} />
         </label>
 
+        <label>
+          Max Sample Files (Step 8)
+          <input type="number" min="200" max="20000" value=${config.maxSampleFiles} disabled=${disabled}
+            onChange=${e => set("maxSampleFiles", Number(e.target.value))} />
+        </label>
+
+        <label>
+          Lifecycle Threshold Days (Step 9)
+          <input type="number" min="30" max="3650" value=${config.lifecycleDays} disabled=${disabled}
+            onChange=${e => set("lifecycleDays", Number(e.target.value))} />
+        </label>
+
         <label className="inline-check">
           <input type="checkbox" checked=${config.includeOneDrive} disabled=${disabled}
             onChange=${e => set("includeOneDrive", e.target.checked)} />
@@ -159,7 +181,7 @@ function ConfigPanel({ config, onChange, disabled, onStart, hasToken }) {
           ${disabled ? "Scan Running…" : hasToken ? "▶ Start Scan" : "Paste a token first"}
         </button>
         <p className="caption">
-          Step 3 (Analyze Sharing &amp; Permissions) appears in Results after this scan completes.
+          Steps 3-9 can run independently below using the same token.
         </p>
       </div>
     </section>`;
@@ -239,14 +261,6 @@ function ResultsPanel({ result }) {
       </p>
 
       <div className="button-row">
-          ${result && !result.isAnalyzingPermissions ? html`
-            <button className="btn" onClick=${result.onAnalyzePermissions}>
-              ▶ Step 3: Analyze Sharing &amp; Permissions
-            </button>
-          ` : null}
-          ${result?.isAnalyzingPermissions ? html`
-            <button className="btn" disabled>⏳ Analyzing Permissions…</button>
-          ` : null}
         <button className="btn ghost" onClick=${() => exportSummaryBySiteCsv(summary)}>⬇ summary_by_site.csv</button>
         <button className="btn ghost" onClick=${() => exportSiteExposureCsv(siteExposureBySite)}>⬇ summary_site_exposure.csv</button>
         <button className="btn ghost" onClick=${() => exportFullJson(result)}>⬇ full_results.json</button>
@@ -254,11 +268,78 @@ function ResultsPanel({ result }) {
     </section>`;
 }
 
+function IndependentStepsPanel({ hasToken, runningStep, onRunStep, stepResults }) {
+  const steps = [
+    { id: 3, title: "Step 3 — Sharing & Permissions Exposure" },
+    { id: 4, title: "Step 4 — Sensitivity Labels & Purview Integration" },
+    { id: 5, title: "Step 5 — Sensitive Information Types (SITs)" },
+    { id: 6, title: "Step 6 — Data Loss Prevention (DLP)" },
+    { id: 7, title: "Step 7 — SharePoint Information Architecture" },
+    { id: 8, title: "Step 8 — Search Readiness Signals" },
+    { id: 9, title: "Step 9 — Lifecycle & Records Management" }
+  ];
+
+  function metricEntries(metrics) {
+    return Object.entries(metrics || {}).slice(0, 8);
+  }
+
+  return html`
+    <section className="card panel">
+      <h2>Independent Assessment Steps</h2>
+      <p className="caption">Run any step independently with the same Graph token. Each step has its own output and export.</p>
+
+      ${steps.map(step => {
+        const stepResult = stepResults[step.id];
+        const isRunning = runningStep === step.id;
+        const canRun = hasToken && !runningStep;
+
+        return html`
+          <div className="card panel" key=${step.id}>
+            <h3>${step.title}</h3>
+            <div className="button-row">
+              <button className="btn" onClick=${() => onRunStep(step.id)} disabled=${!canRun}>
+                ${isRunning ? "Running..." : `▶ Run ${step.title.split("—")[0].trim()}`}
+              </button>
+              ${stepResult ? html`
+                <button className="btn ghost" onClick=${() => onRunStep(step.id, "json")}>⬇ step_${step.id}_results.json</button>
+                ${stepResult.rows?.length ? html`
+                  <button className="btn ghost" onClick=${() => onRunStep(step.id, "csv")}>⬇ step_${step.id}_results.csv</button>
+                ` : null}
+              ` : null}
+            </div>
+
+            ${stepResult ? html`
+              <p className="caption strong">${stepResult.feasible ? "Feasible via current Graph access" : "Not fully feasible via current Graph access"}</p>
+              <p className="caption">${stepResult.summary || ""}</p>
+
+              ${metricEntries(stepResult.metrics).length ? html`
+                <div className="stats-grid">
+                  ${metricEntries(stepResult.metrics).map(([k, v]) => html`
+                    <p key=${k}><span>${k}</span><strong>${String(v)}</strong></p>
+                  `)}
+                </div>
+              ` : null}
+
+              ${stepResult.notes?.length ? html`
+                <ul className="notes-list">
+                  ${stepResult.notes.slice(0, 6).map((n, i) => html`<li key=${i}>${n}</li>`)}
+                </ul>
+              ` : null}
+            ` : html`<p className="caption">No output yet.</p>`}
+          </div>
+        `;
+      })}
+    </section>
+  `;
+}
+
 // ── Root App ──────────────────────────────────────────────────
 function App() {
   const [token,      setToken]      = useState("");
   const [config,     setConfig]     = useState(DEFAULT_CONFIG);
   const [isScanning, setIsScanning] = useState(false);
+  const [runningStep, setRunningStep] = useState(null);
+  const [stepResults, setStepResults] = useState({});
   const [progress,   setProgress]   = useState(IDLE_PROGRESS);
   const [result,     setResult]     = useState(null);
   const [error,      setError]      = useState("");
@@ -266,40 +347,77 @@ function App() {
 
   const hasToken = token.trim().length > 20;
 
-    const startPermissionAnalysis = useCallback(async (baseResult) => {
-      if (!baseResult) return;
-      setResult(prev => ({ ...prev, isAnalyzingPermissions: true }));
-      setProgress({ ...IDLE_PROGRESS, phase: "Analyzing Permissions" });
-      try {
-        const uniqueSites = new Map();
-        for (const record of baseResult.records) {
-          const key = `${record.siteName}||${record.siteUrl}`;
-          if (!uniqueSites.has(key)) {
-            uniqueSites.set(key, {
-              id: key,
-              displayName: record.siteName,
-              webUrl: record.siteUrl,
-              name: record.siteName
-            });
-          }
-        }
-        const siteList = [...uniqueSites.values()];
-        const permAnalysis = await runPermissionAnalysis(token.trim(), siteList, p => 
-          setProgress(prev => ({ ...prev, ...p }))
+  const exportStepJson = useCallback((stepId) => {
+    const data = stepResults[stepId];
+    if (!data) return;
+    exportRowsCsv(`step_${stepId}_results.csv`, data.rows || []);
+  }, [stepResults]);
+
+  const exportStepStructuredJson = useCallback((stepId) => {
+    const data = stepResults[stepId];
+    if (!data) return;
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `step_${stepId}_results.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [stepResults]);
+
+  const runStep = useCallback(async (stepId, action = "run") => {
+    if (action === "json") {
+      exportStepStructuredJson(stepId);
+      return;
+    }
+    if (action === "csv") {
+      exportStepJson(stepId);
+      return;
+    }
+
+    const t = token.trim();
+    if (!t) { setError("Paste a Graph bearer token first."); return; }
+
+    setError("");
+    setRunningStep(stepId);
+    setProgress({ ...IDLE_PROGRESS, phase: `Running Step ${stepId}` });
+
+    const runners = {
+      3: () => runPermissionAnalysis(t, config, p => setProgress(prev => ({ ...prev, ...p }))),
+      4: () => runStep4Sensitivity(t, config, p => setProgress(prev => ({ ...prev, ...p }))),
+      5: () => runStep5SIT(t, config, p => setProgress(prev => ({ ...prev, ...p }))),
+      6: () => runStep6DLP(t, config, p => setProgress(prev => ({ ...prev, ...p }))),
+      7: () => runStep7InformationArchitecture(t, config, p => setProgress(prev => ({ ...prev, ...p }))),
+      8: () => runStep8SearchReadiness(t, config, p => setProgress(prev => ({ ...prev, ...p }))),
+      9: () => runStep9Lifecycle(t, config, p => setProgress(prev => ({ ...prev, ...p })))
+    };
+
+    try {
+      const data = await runners[stepId]();
+
+      if (stepId === 3 && result) {
+        const mergedSummary = mergeSiteExposureIntoSummary(
+          summarize(result.records || []),
+          data.siteExposureBySite || []
         );
-        setResult(prev => ({
+        setResult(prev => prev ? {
           ...prev,
-          isAnalyzingPermissions: false,
-          siteExposureBySite: permAnalysis.siteExposureBySite,
-          summary: mergeSiteExposureIntoSummary(prev.summary, permAnalysis.siteExposureBySite),
-          notes: [...(prev.notes || []), ...permAnalysis.notes]
-        }));
-        setProgress(prev => ({ ...prev, phase: "Permissions Complete" }));
-      } catch (e) {
-        setError(`Permission analysis error: ${e.message}`);
-        setResult(prev => ({ ...prev, isAnalyzingPermissions: false }));
+          siteExposureBySite: data.siteExposureBySite || [],
+          summary: mergedSummary,
+          notes: [...(prev.notes || []), ...(data.notes || [])]
+        } : prev);
       }
-    }, [token]);
+
+      setStepResults(prev => ({ ...prev, [stepId]: data }));
+      setProgress(prev => ({ ...prev, phase: `Step ${stepId} Complete` }));
+    } catch (e) {
+      setError(`Step ${stepId} failed: ${e.message}`);
+    } finally {
+      setRunningStep(null);
+    }
+  }, [token, config, result, exportStepJson, exportStepStructuredJson]);
 
   const startScan = useCallback(async () => {
     const t = token.trim();
@@ -316,19 +434,14 @@ function App() {
         summarize(scanData.records),
         scanData.siteExposureBySite || []
       );
-        setResult({ 
-          ...scanData, 
-          summary,
-          isAnalyzingPermissions: false,
-          onAnalyzePermissions: () => startPermissionAnalysis(scanData)
-        });
+      setResult({ ...scanData, summary });
       setProgress(prev => ({ ...prev, phase: "Complete" }));
     } catch (e) {
       setError(`Scan error: ${e.message}`);
     } finally {
       setIsScanning(false);
     }
-    }, [token, config, startPermissionAnalysis]);
+    }, [token, config]);
 
   useEffect(() => {
     function onWindowError(event) {
@@ -364,7 +477,7 @@ function App() {
     };
   }, [isScanning]);
 
-  const showProgress = isScanning || (progress.phase !== "Idle" && progress.phase !== "Complete") || progress.phase === "Complete";
+  const showProgress = isScanning || !!runningStep || (progress.phase !== "Idle" && progress.phase !== "Complete") || progress.phase === "Complete";
 
   return html`
     <main className="app-shell">
@@ -373,9 +486,15 @@ function App() {
       <${ConfigPanel}
         config=${config}
         onChange=${setConfig}
-        disabled=${isScanning}
+        disabled=${isScanning || !!runningStep}
         onStart=${startScan}
         hasToken=${hasToken}
+      />
+      <${IndependentStepsPanel}
+        hasToken=${hasToken}
+        runningStep=${runningStep}
+        onRunStep=${runStep}
+        stepResults=${stepResults}
       />
       <${ProgressPanel}
         progress=${progress}

@@ -150,6 +150,64 @@ async function scanFolder(client, driveId, itemId, depth, ctx) {
   }
 }
 
+async function discoverSitesWithClient(client, maxSites, notes) {
+  const siteMap = new Map();
+
+  async function collectSitesFromEndpoint(url) {
+    const found = await client.getAllPages(url, p => p.value || []);
+    for (const s of found) {
+      if (s.id && !siteMap.has(s.id)) {
+        siteMap.set(s.id, s);
+      }
+      if (siteMap.size >= maxSites) {
+        break;
+      }
+    }
+  }
+
+  let usedGetAllSites = false;
+  let usedFallback = "";
+
+  try {
+    await collectSitesFromEndpoint("/sites/getAllSites?$top=999");
+    usedGetAllSites = true;
+  } catch {
+    notes.push("getAllSites is unavailable for this token; using fallback site discovery.");
+  }
+
+  if (!usedGetAllSites && siteMap.size < maxSites) {
+    const fallbackEndpoints = [
+      { name: "sites-list", url: "/sites?$top=999" },
+      { name: "followed-sites", url: "/me/followedSites?$top=999" },
+      { name: "site-search", url: "/sites?search=*&$top=999" }
+    ];
+
+    for (const fallback of fallbackEndpoints) {
+      if (siteMap.size >= maxSites) break;
+      try {
+        await collectSitesFromEndpoint(fallback.url);
+        usedFallback = fallback.name;
+      } catch {
+        // Try the next fallback endpoint.
+      }
+    }
+
+    if (usedFallback) {
+      notes.push(`Used ${usedFallback} fallback discovery path.`);
+    }
+  }
+
+  return [...siteMap.values()].slice(0, maxSites);
+}
+
+export async function discoverSites(accessToken, config = {}) {
+  const client = createGraphClient(accessToken);
+  const maxSites = config.unlimitedSites ? Infinity : (config.maxSites || 25);
+  const notes = [];
+  const siteList = await discoverSitesWithClient(client, maxSites, notes);
+  return { siteList, notes };
+}
+
 // ── Main entry ────────────────────────────────────────────────
 export async function runScan(accessToken, config, onProgress) {
   const client  = createGraphClient(accessToken);
@@ -161,7 +219,6 @@ export async function runScan(accessToken, config, onProgress) {
   
   const records = [];
   const notes   = [];
-  const exposureBySite = new Map();
   const total   = { v: 0 };
   let   sites   = 0;
   let   timeLimitReached = false;
@@ -195,56 +252,7 @@ export async function runScan(accessToken, config, onProgress) {
   // ── Phase 1: Site Discovery ───────────────────────────────
   emit("Discovery", "", "", true);
 
-  const siteMap = new Map();
-
-  async function collectSitesFromEndpoint(url) {
-    const found = await client.getAllPages(url, p => p.value || []);
-    for (const s of found) {
-      if (s.id && !siteMap.has(s.id)) {
-        siteMap.set(s.id, s);
-      }
-      if (siteMap.size >= maxSites) {
-        break;
-      }
-    }
-  }
-
-  let usedGetAllSites = false;
-  let usedFallback = "";
-
-  try {
-    await collectSitesFromEndpoint("/sites/getAllSites?$top=999");
-    usedGetAllSites = true;
-  } catch {
-    notes.push("getAllSites is unavailable for this token; using fallback site discovery.");
-  }
-
-  if (!usedGetAllSites && siteMap.size < maxSites) {
-    const fallbackEndpoints = [
-      { name: "sites-list", url: "/sites?$top=999" },
-      { name: "followed-sites", url: "/me/followedSites?$top=999" },
-      { name: "site-search", url: "/sites?search=*&$top=999" }
-    ];
-
-    for (const fallback of fallbackEndpoints) {
-      if (siteMap.size >= maxSites) {
-        break;
-      }
-
-      try {
-        await collectSitesFromEndpoint(fallback.url);
-        usedFallback = fallback.name;
-      } catch {
-        // Try the next fallback endpoint.
-      }
-    }
-
-    if (usedFallback) {
-      notes.push(`Used ${usedFallback} fallback discovery path.`);
-    }
-  }
-
-  const siteList = [...siteMap.values()].slice(0, maxSites);
+  const siteList = await discoverSitesWithClient(client, maxSites, notes);
   notes.push(`Discovered ${siteList.length} SharePoint site(s) before scanning drives.`);
   if (!siteList.length) {
     notes.push(config.includeOneDrive
@@ -323,6 +331,7 @@ export async function runScan(accessToken, config, onProgress) {
     records,
     notes,
     siteExposureBySite: [],
+    discoveredSites: siteList,
     sitesProcessed: sites,
     timeLimitReached,
     startedAt:  new Date(startMs).toISOString(),
@@ -331,12 +340,16 @@ export async function runScan(accessToken, config, onProgress) {
 }
 
   // ── Step 3 (Optional): Permission & Sharing Exposure Analysis ────
-  export async function runPermissionAnalysis(accessToken, siteList, onProgress) {
+  export async function runPermissionAnalysis(accessToken, config, onProgress) {
     const client = createGraphClient(accessToken);
     const startMs = Date.now();
     const notes = [];
     const exposureBySite = new Map();
     let processed = 0;
+    const maxSites = config?.unlimitedSites ? Infinity : (config?.maxSites || 25);
+    const siteList = await discoverSitesWithClient(client, maxSites, notes);
+
+    notes.push(`Step 3 discovered ${siteList.length} site(s) for sharing/permission analysis.`);
 
     function emit(site = "", lib = "") {
       const now = Date.now();
@@ -434,6 +447,7 @@ export async function runScan(accessToken, config, onProgress) {
 
     return {
       siteExposureBySite: [...exposureBySite.values()],
+      discoveredSites: siteList,
       notes,
       startedAt: new Date(startMs).toISOString(),
       finishedAt: new Date().toISOString()

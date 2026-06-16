@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>About — BDO Data Governance Assessment</title>
+  <link rel="stylesheet" href="app.css?v=20260615d" />
+  <style>
+    .about-shell {
+      width: min(900px, 94vw);
+      margin: 2rem auto 3rem;
+      display: grid;
+      gap: 1rem;
+    }
+    .step-num {
+      display: inline-block;
+      background: var(--brand-blue);
+      color: #fff;
+      border-radius: 50%;
+      width: 2rem;
+      height: 2rem;
+      line-height: 2rem;
+      text-align: center;
+      font-weight: 700;
+      margin-right: .6rem;
+      flex-shrink: 0;
+    }
+    .step-heading {
+      display: flex;
+      align-items: center;
+      margin: 0 0 .6rem;
+      font-size: 1.1rem;
+    }
+    .feasibility {
+      display: inline-block;
+      padding: .15rem .55rem;
+      border-radius: 5px;
+      font-size: .78rem;
+      font-weight: 700;
+      margin-left: .5rem;
+    }
+    .f-yes  { background: #d4edda; color: #155724; }
+    .f-part { background: #fff3cd; color: #856404; }
+    .f-no   { background: #f8d7da; color: #721c24; }
+    .signal-list { margin: .4rem 0 .6rem; padding-left: 1.4rem; }
+    .signal-list li { margin: .3rem 0; font-size: .92rem; }
+    .limit-box {
+      background: #f5f5f5;
+      border-left: 3px solid var(--brand-blue);
+      padding: .5rem .75rem;
+      border-radius: 0 6px 6px 0;
+      font-size: .88rem;
+      color: var(--muted);
+      margin-top: .5rem;
+    }
+    .back-link {
+      display: inline-block;
+      margin-bottom: .5rem;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="about-shell">
+
+    <img
+      src="https://www.bdo.com/getmedia/4e64ef6e-396a-4245-b942-b3c74eb04f8f/BDO-USA_web-01.svg"
+      alt="BDO" style="width:90px;margin-bottom:.5rem;" />
+
+    <header class="card hero">
+      <p class="kicker">BDO Data Governance Assessment</p>
+      <h1>Data Architecture Scanner — About &amp; Step Reference</h1>
+      <p class="caption">
+        All steps authenticate with a single Microsoft Graph delegated access token.
+        Each step can be run independently. Feasibility ratings reflect what is accessible
+        from the current Graph/SharePoint scanner path vs. what requires Purview or compliance-plane access.
+      </p>
+      <a class="back-link" href="index.html">← Back to Scanner</a>
+    </header>
+
+    <!-- Step 1 -->
+    <section class="card panel">
+      <h2 class="step-heading">
+        <span class="step-num">1</span>
+        Token Setup
+        <span class="feasibility f-yes">Required for all steps</span>
+      </h2>
+      <p class="caption">
+        Paste a Microsoft Graph delegated access token obtained from
+        <a href="https://developer.microsoft.com/en-us/graph/graph-explorer" target="_blank" rel="noreferrer">Graph Explorer</a>
+        or Azure CLI/PowerShell. The token must have the following scopes:
+      </p>
+      <ul class="signal-list">
+        <li><code>User.Read</code> — identity verification</li>
+        <li><code>Files.Read.All</code> — read file metadata across drives</li>
+        <li><code>Sites.Read.All</code> — enumerate SharePoint sites and libraries</li>
+      </ul>
+      <div class="limit-box">Token lifetime is typically 1 hour. If you see 401 errors, regenerate a fresh token from Graph Explorer.</div>
+    </section>
+
+    <!-- Step 2 -->
+    <section class="card panel">
+      <h2 class="step-heading">
+        <span class="step-num">2</span>
+        Content Staleness Scan
+        <span class="feasibility f-yes">Fully feasible via Graph</span>
+      </h2>
+      <p class="caption">
+        Discovers all accessible SharePoint sites and then samples files within each library
+        to measure content age. Uses time and file-count caps to stay within practical run times.
+      </p>
+      <ul class="signal-list">
+        <li>Site discovery via <code>/sites/getAllSites</code> with fallback to <code>/sites?$top=999</code>, <code>/me/followedSites</code>, and <code>/sites?search=*</code></li>
+        <li>File records collected: name, extension, size, created date, last modified date</li>
+        <li>Staleness calculated at 90 / 180 / 365 day thresholds</li>
+        <li>Results aggregated per site and per library</li>
+        <li>Configurable: max sites, max files, max runtime, folder depth, OneDrive inclusion</li>
+      </ul>
+      <p><strong>Exports:</strong> <code>summary_by_site.csv</code>, <code>summary_site_exposure.csv</code>, <code>full_results.json</code></p>
+      <div class="limit-box">This is a time-bounded sampling assessment, not a full inventory. Large tenants will be partially sampled.</div>
+    </section>
+
+    <!-- Step 3 -->
+    <section class="card panel">
+      <h2 class="step-heading">
+        <span class="step-num">3</span>
+        Sharing &amp; Permissions Exposure
+        <span class="feasibility f-part">Partially feasible — tenant policy dependent</span>
+      </h2>
+      <p class="caption">
+        Re-discovers all accessible SharePoint sites and checks sharing permissions at the
+        site level, library root level, and top-level folder level. Does <strong>not</strong> require
+        Step 2 to have been run first.
+      </p>
+      <ul class="signal-list">
+        <li><strong>Anonymous / Anyone links</strong> — sharing links with <code>scope: anonymous</code></li>
+        <li><strong>Organization-scoped links</strong> — links accessible to all tenant members</li>
+        <li><strong>Everyone / All Users grants</strong> — direct permission grants to broad groups</li>
+        <li>Checked at: site permissions endpoint, library root, and top-level folders</li>
+        <li>403 access-denied responses are silently skipped (tenant policy controls this)</li>
+      </ul>
+      <p><strong>Exports:</strong> <code>step_3_results.json</code>, <code>step_3_results.csv</code> (per-site exposure rows)</p>
+      <div class="limit-box">The <code>/sites/{id}/permissions</code> endpoint returns 403 in many tenants for delegated tokens even with Sites.Read.All. Library and folder permission checks are attempted regardless.</div>
+    </section>
+
+    <!-- Step 4 -->
+    <section class="card panel">
+      <h2 class="step-heading">
+        <span class="step-num">4</span>
+        Sensitivity Labels &amp; Purview Integration
+        <span class="feasibility f-part">Partial — label catalog only via Graph</span>
+      </h2>
+      <p class="caption">
+        Attempts to retrieve the tenant sensitivity label catalog via Microsoft Graph to inventory
+        what classification labels are configured.
+      </p>
+      <ul class="signal-list">
+        <li>Calls <code>/security/informationProtection/sensitivityLabels</code></li>
+        <li>Returns label names, IDs, and priority ranking if accessible</li>
+        <li>Confirms whether a label taxonomy exists (Public / General / Confidential / Highly Confidential)</li>
+      </ul>
+      <p><strong>Exports:</strong> <code>step_4_results.json</code>, <code>step_4_results.csv</code> (label catalog)</p>
+      <div class="limit-box">
+        <strong>Not available via this path:</strong> file-level applied-label coverage, percentage of files labeled,
+        auto-label vs. manual attribution, label inheritance, and auto-labeling policy configuration.
+        These require the Purview Information Protection compliance-plane APIs (separate authentication and licensing).
+      </div>
+    </section>
+
+    <!-- Step 5 -->
+    <section class="card panel">
+      <h2 class="step-heading">
+        <span class="step-num">5</span>
+        Sensitive Information Types (SITs)
+        <span class="feasibility f-no">Not feasible via current Graph path</span>
+      </h2>
+      <p class="caption">
+        SIT detection identifies files containing regulated data patterns such as Social Security Numbers,
+        credit card numbers, financial data, PII, and healthcare identifiers. This step documents the gap.
+      </p>
+      <ul class="signal-list">
+        <li>Microsoft Graph file metadata endpoints do <strong>not</strong> expose SIT detection results</li>
+        <li>SIT hits are generated by the Purview DLP classification engine and stored in the compliance telemetry pipeline</li>
+        <li>Overshared locations containing SITs cannot be identified without compliance plane access</li>
+        <li>SIT policy match counts and enforcement outcomes are also inaccessible from this path</li>
+      </ul>
+      <div class="limit-box">
+        Requires: Purview DLP/classification telemetry APIs, Microsoft 365 E5 Compliance or equivalent licensing,
+        and a service principal with Compliance Administrator delegated access.
+      </div>
+    </section>
+
+    <!-- Step 6 -->
+    <section class="card panel">
+      <h2 class="step-heading">
+        <span class="step-num">6</span>
+        Data Loss Prevention (DLP)
+        <span class="feasibility f-no">Not feasible via current Graph path</span>
+      </h2>
+      <p class="caption">
+        DLP assessment measures policy coverage (SharePoint, OneDrive, Teams), enforcement mode
+        (audit-only vs. block vs. override with justification), and incident trend volume. This step documents the gap.
+      </p>
+      <ul class="signal-list">
+        <li>DLP policy inventory is not exposed through the Microsoft Graph <code>/sites</code> or <code>/drives</code> path</li>
+        <li>DLP incident data lives in the Security &amp; Compliance Center, not in Graph file metadata</li>
+        <li>Policy actions (block / notify / justify) require the Purview DLP policy management API</li>
+      </ul>
+      <div class="limit-box">
+        Requires: Purview DLP APIs (<code>/beta/security/dataLossPreventionPolicies</code>),
+        Microsoft 365 E3/E5 Compliance licensing, and Compliance Administrator access scope.
+      </div>
+    </section>
+
+    <!-- Step 7 -->
+    <section class="card panel">
+      <h2 class="step-heading">
+        <span class="step-num">7</span>
+        SharePoint Information Architecture
+        <span class="feasibility f-yes">Fully feasible via Graph</span>
+      </h2>
+      <p class="caption">
+        Assesses the structural quality of each SharePoint library for search effectiveness and Copilot grounding.
+        Walks every discovered site and library to collect structural signals.
+      </p>
+      <ul class="signal-list">
+        <li><strong>Folder-only pattern</strong> — libraries where the root contains only folders and no loose files (anti-pattern)</li>
+        <li><strong>Deep nesting</strong> — measures actual folder depth; flags libraries exceeding 5 levels</li>
+        <li><strong>Custom columns</strong> — counts non-hidden, non-read-only columns per library (metadata richness indicator)</li>
+        <li><strong>Multiple content types</strong> — detects libraries with more than one content type (structured taxonomy signal)</li>
+        <li>Powered by: <code>/drives/{id}/root/children</code>, <code>/sites/{id}/lists/{id}/columns</code>, <code>/sites/{id}/lists/{id}/contentTypes</code></li>
+      </ul>
+      <p><strong>Exports:</strong> <code>step_7_results.json</code>, <code>step_7_results.csv</code> (per-library row)</p>
+      <div class="limit-box">Term store managed metadata columns and taxonomy consistency across sites require additional calls to the SharePoint REST API (<code>/_api/site/rootweb/termstore</code>), which is outside this scanner's Graph-only path.</div>
+    </section>
+
+    <!-- Step 8 -->
+    <section class="card panel">
+      <h2 class="step-heading">
+        <span class="step-num">8</span>
+        Search Readiness Signals
+        <span class="feasibility f-yes">Feasible via Graph (heuristic)</span>
+      </h2>
+      <p class="caption">
+        Samples files across discovered sites and applies heuristic rules to flag content that
+        degrades Microsoft Search and Copilot grounding quality.
+      </p>
+      <ul class="signal-list">
+        <li><strong>Generic / untitled file names</strong> — flags patterns like <code>Document1.docx</code>, <code>Copy of...</code>, <code>Scan001.pdf</code>, <code>File.xlsx</code></li>
+        <li><strong>Duplicate file names</strong> — names appearing more than once across the sampled set</li>
+        <li><strong>Potentially non-indexed types</strong> — extensions unsupported by Microsoft Search indexing (<code>.exe</code>, <code>.pst</code>, <code>.iso</code>, <code>.bak</code>, <code>.zip</code>, etc.)</li>
+        <li>Configurable sample size (default: 2,000 files per run)</li>
+      </ul>
+      <p><strong>Exports:</strong> <code>step_8_results.json</code>, <code>step_8_results.csv</code> (per-file flags)</p>
+      <div class="limit-box">Graph does not reliably expose SharePoint list-item field values (Title, Description, custom metadata) without expensive per-item expansion. Metadata completeness signals are therefore heuristic only.</div>
+    </section>
+
+    <!-- Step 9 -->
+    <section class="card panel">
+      <h2 class="step-heading">
+        <span class="step-num">9</span>
+        Lifecycle &amp; Records Management
+        <span class="feasibility f-part">Partial — site staleness feasible; retention requires Purview</span>
+      </h2>
+      <p class="caption">
+        Measures site-level activity age and flags sites that have not been modified within a
+        configurable threshold. Identifies orphaned or dormant sites as data lifecycle risk.
+      </p>
+      <ul class="signal-list">
+        <li><strong>Site last-modified date</strong> — pulled from <code>/sites/{id}</code> metadata</li>
+        <li><strong>Stale site flag</strong> — configurable threshold (default: 180 days)</li>
+        <li>Stale site count and percentage reported across all discovered sites</li>
+      </ul>
+      <p><strong>Exports:</strong> <code>step_9_results.json</code>, <code>step_9_results.csv</code> (per-site staleness row)</p>
+      <div class="limit-box">
+        <strong>Not available via this path:</strong> retention policy configuration and coverage percentage,
+        records declared vs. non-records, version history depth per file, draft vs. published content,
+        and Teams/Viva Engage inactivity signals. These require Purview Records Management APIs and
+        Teams reporting telemetry.
+      </div>
+    </section>
+
+    <footer class="card panel" style="text-align:center;">
+      <p class="caption">BDO Data Governance Assessment Tool &mdash; for internal assessment use only.</p>
+      <a class="back-link" href="index.html">← Back to Scanner</a>
+    </footer>
+
+  </div>
+</body>
+</html>
