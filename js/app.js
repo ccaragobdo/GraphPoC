@@ -20,8 +20,14 @@ import {
   runStep6DLP,
   runStep7InformationArchitecture,
   runStep8SearchReadiness,
-  runStep9Lifecycle
-} from "./assessments.js?v=20260616b";
+  runStep9Lifecycle,
+  runStep10Versioning,
+  runStep11FileTypeQuality,
+  runStep12CopilotReadiness,
+  runStep13ExternalCollaboration,
+  runStep14GovernanceControls,
+  runStep15BehavioralUsage
+} from "./assessments.js?v=20260618a";
 // Bind htm to React.createElement — gives us html`` template literals
 const html = htm.bind(createElement);
 
@@ -81,7 +87,7 @@ function Header() {
       <h1>Data Architecture Scanner</h1>
       <p className="caption">Scans only content accessible to the delegated token.</p>
       <p className="caption strong">This is a time-based sampling assessment, not a full inventory.</p>
-      <a href="about.html" target="_blank" rel="noreferrer" className="caption" style=${{ marginTop: ".4rem", display: "inline-block" }}>ℹ What does each step do? →</a>
+      <a href="about.html" className="caption" style=${{ marginTop: ".4rem", display: "inline-block" }}>ℹ What does each step do? →</a>
     </header>`;
 }
 
@@ -291,7 +297,13 @@ function IndependentStepsPanel({ hasToken, runningStep, onRunStep, stepResults }
     { id: 6, title: "Step 6 — Data Loss Prevention (DLP)",               runnable: false },
     { id: 7, title: "Step 7 — SharePoint Information Architecture",      runnable: true  },
     { id: 8, title: "Step 8 — Search Readiness Signals",                 runnable: true  },
-    { id: 9, title: "Step 9 — Lifecycle & Records Management",           runnable: true  }
+    { id: 9, title: "Step 9 — Lifecycle & Records Management",           runnable: true  },
+    { id: 10, title: "Step 10 — Versioning & Change Noise",              runnable: false },
+    { id: 11, title: "Step 11 — File Type & Content Quality",            runnable: true  },
+    { id: 12, title: "Step 12 — Copilot-Specific Readiness Indicators",  runnable: true  },
+    { id: 13, title: "Step 13 — External Collaboration Risk",            runnable: true  },
+    { id: 14, title: "Step 14 — Governance Controls Presence",           runnable: false },
+    { id: 15, title: "Step 15 — Behavioral & Usage Signals (Advanced)",  runnable: false }
   ];
 
   function metricEntries(metrics) {
@@ -414,7 +426,13 @@ function App() {
       6: () => runStep6DLP(t, config, p => setProgress(prev => ({ ...prev, ...p }))),
       7: () => runStep7InformationArchitecture(t, config, p => setProgress(prev => ({ ...prev, ...p }))),
       8: () => runStep8SearchReadiness(t, config, p => setProgress(prev => ({ ...prev, ...p }))),
-      9: () => runStep9Lifecycle(t, config, p => setProgress(prev => ({ ...prev, ...p })))
+      9: () => runStep9Lifecycle(t, config, p => setProgress(prev => ({ ...prev, ...p }))),
+      10: () => runStep10Versioning(t, config, p => setProgress(prev => ({ ...prev, ...p }))),
+      11: () => runStep11FileTypeQuality(t, config, p => setProgress(prev => ({ ...prev, ...p }))),
+      12: () => runStep12CopilotReadiness(t, config, p => setProgress(prev => ({ ...prev, ...p }))),
+      13: () => runStep13ExternalCollaboration(t, config, p => setProgress(prev => ({ ...prev, ...p }))),
+      14: () => runStep14GovernanceControls(t, config, p => setProgress(prev => ({ ...prev, ...p }))),
+      15: () => runStep15BehavioralUsage(t, config, p => setProgress(prev => ({ ...prev, ...p })))
     };
 
     try {

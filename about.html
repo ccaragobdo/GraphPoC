@@ -280,6 +280,126 @@
       </div>
     </section>
 
+    <!-- Step 10 -->
+    <section class="card panel">
+      <h2 class="step-heading">
+        <span class="step-num">10</span>
+        Versioning &amp; Change Noise
+        <span class="feasibility f-no">Not feasible via current Graph path</span>
+      </h2>
+      <p class="caption">
+        This step is intended to measure version sprawl and noisy editing patterns that can reduce Copilot grounding quality,
+        but those controls are not reliably available through the current delegated Graph scanner path.
+      </p>
+      <ul class="signal-list">
+        <li>Average versions per file</li>
+        <li>Files with excessive minor versions</li>
+        <li>Libraries without versioning enabled</li>
+        <li>Major vs. minor version usage</li>
+      </ul>
+      <div class="limit-box">These checks require broader version-history enumeration and/or SharePoint library version-settings APIs beyond the Graph path currently used by this tool.</div>
+    </section>
+
+    <!-- Step 11 -->
+    <section class="card panel">
+      <h2 class="step-heading">
+        <span class="step-num">11</span>
+        File Type &amp; Content Quality
+        <span class="feasibility f-part">Partially feasible via Graph</span>
+      </h2>
+      <p class="caption">
+        Samples files across discovered libraries to estimate how much content is well-suited for Copilot versus lower-value or harder-to-ground formats.
+      </p>
+      <ul class="signal-list">
+        <li>Percentage of files in Office formats</li>
+        <li>Percentage of PDFs</li>
+        <li>Percentage of images / low-usability formats</li>
+        <li>Heuristic detection of scanned PDFs from filename patterns</li>
+        <li>Heuristic detection of encrypted/protected files from filename patterns</li>
+      </ul>
+      <p><strong>Exports:</strong> <code>step_11_results.json</code>, <code>step_11_results.csv</code></p>
+      <div class="limit-box">OCR enablement and true encryption/protection state are not reliably exposed in this scanner path; those signals are heuristic only.</div>
+    </section>
+
+    <!-- Step 12 -->
+    <section class="card panel">
+      <h2 class="step-heading">
+        <span class="step-num">12</span>
+        Copilot-Specific Readiness Indicators
+        <span class="feasibility f-part">Partial — heuristic composite via Graph</span>
+      </h2>
+      <p class="caption">
+        Produces a direct readiness view aimed at Copilot value realization using observable activity signals and a lightweight trust heuristic.
+      </p>
+      <ul class="signal-list">
+        <li>Recently active content ratio</li>
+        <li>Placeholder for properly labeled content coverage</li>
+        <li>Placeholder for oversharing / low-risk exposure ratio</li>
+        <li>Trusted content ratio heuristic</li>
+      </ul>
+      <p><strong>Exports:</strong> <code>step_12_results.json</code>, <code>step_12_results.csv</code></p>
+      <div class="limit-box">This step is intentionally partial. Label coverage and richer exposure scoring require combining this with Step 3/Step 4 outputs or Purview/compliance-plane signals.</div>
+    </section>
+
+    <!-- Step 13 -->
+    <section class="card panel">
+      <h2 class="step-heading">
+        <span class="step-num">13</span>
+        External Collaboration Risk
+        <span class="feasibility f-part">Partially feasible — permission payload dependent</span>
+      </h2>
+      <p class="caption">
+        Looks for external-sharing blind spots using whatever external identities and link metadata are exposed in Graph permission responses.
+      </p>
+      <ul class="signal-list">
+        <li>External users by domain / guest-like principals</li>
+        <li>Guest sprawl heuristic by site</li>
+        <li>Shared links with no expiration date</li>
+        <li>External sharing growth trends marked unavailable without historical telemetry</li>
+      </ul>
+      <p><strong>Exports:</strong> <code>step_13_results.json</code>, <code>step_13_results.csv</code></p>
+      <div class="limit-box">Detection depends on the permission payload exposing external identities or emails. Growth trends require historical snapshots or audit logs.</div>
+    </section>
+
+    <!-- Step 14 -->
+    <section class="card panel">
+      <h2 class="step-heading">
+        <span class="step-num">14</span>
+        Governance Controls Presence
+        <span class="feasibility f-no">Not feasible via current Graph path</span>
+      </h2>
+      <p class="caption">
+        Intended to verify whether central governance guardrails exist, but most of those controls live in SharePoint admin, Entra admin, or Purview planes outside this delegated scanner path.
+      </p>
+      <ul class="signal-list">
+        <li>Site provisioning controls and naming policies</li>
+        <li>Container sensitivity labels</li>
+        <li>Tenant/site default sharing settings</li>
+        <li>Expiration policies for sharing links</li>
+        <li>Access reviews configuration</li>
+      </ul>
+      <div class="limit-box">Requires additional admin-plane APIs and elevated permissions beyond the current Graph file/site scan path.</div>
+    </section>
+
+    <!-- Step 15 -->
+    <section class="card panel">
+      <h2 class="step-heading">
+        <span class="step-num">15</span>
+        Behavioral &amp; Usage Signals (Advanced)
+        <span class="feasibility f-no">Not feasible via current Graph path</span>
+      </h2>
+      <p class="caption">
+        Intended to measure actual usage behavior, collaboration hotspots, and search effectiveness, but those signals require analytics and audit telemetry not available through this scanner path.
+      </p>
+      <ul class="signal-list">
+        <li>Most accessed vs. least accessed files</li>
+        <li>Content hotspots / highly collaborative sites</li>
+        <li>Abandoned collaboration spaces</li>
+        <li>Search query success rates</li>
+      </ul>
+      <div class="limit-box">These checks require Microsoft 365 usage analytics, audit logs, reports APIs, or search analytics sources outside the current delegated Graph scan path.</div>
+    </section>
+
     <footer class="card panel" style="text-align:center;">
       <p class="caption">BDO Data Governance Assessment Tool &mdash; for internal assessment use only.</p>
       <a class="back-link" href="index.html">← Back to Scanner</a>
