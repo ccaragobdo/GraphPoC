@@ -135,7 +135,7 @@
       <ul class="signal-list">
         <li><strong>Anonymous / Anyone links</strong> — sharing links with <code>scope: anonymous</code></li>
         <li><strong>Organization-scoped links</strong> — links accessible to all tenant members</li>
-        <li><strong>Everyone / All Users grants</strong> — detected from permission principal display names using case-insensitive substring matching for <code>"everyone"</code> or <code>"all users"</code>; names are read from Graph identity fields including direct, user, group, and siteGroup displayName values</li>
+        <li><strong>Everyone / All Users grants</strong> — detected from permission principal display names using case-insensitive substring matching for <code>"everyone"</code>, <code>"all users"</code>, or <code>"all"</code>; names are read from Graph identity fields including direct, user, group, and siteGroup displayName values and surfaced in Step 3 output</li>
         <li>Checked at: site permissions endpoint, library root, and top-level folders</li>
         <li>403 access-denied responses are silently skipped (tenant policy controls this)</li>
       </ul>

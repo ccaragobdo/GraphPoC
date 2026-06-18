@@ -26,6 +26,7 @@ function ensureSiteExposure(exposureMap, siteName, siteUrl) {
       anyoneLinks: 0,
       organizationLinks: 0,
       everyoneAllUsersGrants: 0,
+      matchedPrincipalNames: [],
       resourcesWithAnyoneLinks: 0,
       resourcesWithEveryoneAllUsers: 0
     });
@@ -64,7 +65,7 @@ function collectPrincipalNames(permission) {
 
 function isEveryoneOrAllUsersName(name) {
   const value = String(name || "").toLowerCase();
-  return value.includes("everyone") || value.includes("all users");
+  return value.includes("everyone") || value.includes("all users") || value.includes("all");
 }
 
 async function collectExposureForEndpoint(client, endpoint, exposure) {
@@ -89,9 +90,15 @@ async function collectExposureForEndpoint(client, endpoint, exposure) {
     }
 
     const names = collectPrincipalNames(permission);
-    if (names.some(isEveryoneOrAllUsersName)) {
+    const matchedNames = names.filter(isEveryoneOrAllUsersName);
+    if (matchedNames.length) {
       exposure.everyoneAllUsersGrants += 1;
       resourceHasEveryoneGroup = true;
+      for (const matchedName of matchedNames) {
+        if (!exposure.matchedPrincipalNames.includes(matchedName)) {
+          exposure.matchedPrincipalNames.push(matchedName);
+        }
+      }
     }
   }
 
@@ -445,8 +452,35 @@ export async function runPermissionAnalysis(accessToken, config, onProgress) {
     emit(siteName, "");
   }
 
+  const siteExposureBySite = [...exposureBySite.values()];
+  const rows = siteExposureBySite.map((s) => ({
+    SiteName: s.siteName,
+    SiteUrl: s.siteUrl,
+    SiteScopesChecked: s.siteScopesChecked ?? 0,
+    LibraryScopesChecked: s.libraryScopesChecked ?? 0,
+    FolderScopesChecked: s.folderScopesChecked ?? 0,
+    AnyoneLinks: s.anyoneLinks ?? 0,
+    OrganizationLinks: s.organizationLinks ?? 0,
+    EveryoneOrAllUsersGrants: s.everyoneAllUsersGrants ?? 0,
+    ResourcesWithAnyoneLinks: s.resourcesWithAnyoneLinks ?? 0,
+    ResourcesWithEveryoneOrAllUsers: s.resourcesWithEveryoneAllUsers ?? 0,
+    PermissionsChecked: s.permissionsChecked ?? 0,
+    MatchedGroupNames: (s.matchedPrincipalNames || []).join("; ")
+  }));
+
   return {
-    siteExposureBySite: [...exposureBySite.values()],
+    step: 3,
+    title: "Sharing & Permissions Exposure",
+    feasible: true,
+    summary: "Exposure signals collected at site, library root, and top-level folder scopes.",
+    metrics: {
+      sitesAssessed: siteExposureBySite.length,
+      totalAnyoneLinks: siteExposureBySite.reduce((a, s) => a + (s.anyoneLinks || 0), 0),
+      totalOrganizationLinks: siteExposureBySite.reduce((a, s) => a + (s.organizationLinks || 0), 0),
+      totalEveryoneOrAllUsersGrants: siteExposureBySite.reduce((a, s) => a + (s.everyoneAllUsersGrants || 0), 0)
+    },
+    rows,
+    siteExposureBySite,
     discoveredSites: siteList,
     notes,
     startedAt: new Date(startMs).toISOString(),

@@ -25,6 +25,21 @@ import {
 // Bind htm to React.createElement — gives us html`` template literals
 const html = htm.bind(createElement);
 
+const STORAGE_KEYS = {
+  token: "dga_token",
+  stepResults: "dga_stepResults",
+  scanResult: "dga_scanResult"
+};
+
+function readStoredJson(key, fallbackValue) {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallbackValue;
+  } catch {
+    return fallbackValue;
+  }
+}
+
 // ── Defaults ──────────────────────────────────────────────────
 const DEFAULT_CONFIG = {
   maxRuntimeMinutes:    5,
@@ -337,18 +352,19 @@ function IndependentStepsPanel({ hasToken, runningStep, onRunStep, stepResults }
 
 // ── Root App ──────────────────────────────────────────────────
 function App() {
-  const [token,      setToken]      = useState("");
+  const [token,      setToken]      = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEYS.token) || "";
+    } catch {
+      return "";
+    }
+  });
   const [config,     setConfig]     = useState(DEFAULT_CONFIG);
   const [isScanning, setIsScanning] = useState(false);
   const [runningStep, setRunningStep] = useState(null);
-  const [stepResults, setStepResults] = useState(() => {
-    try {
-      const saved = sessionStorage.getItem("dga_stepResults");
-      return saved ? JSON.parse(saved) : {};
-    } catch { return {}; }
-  });
+  const [stepResults, setStepResults] = useState(() => readStoredJson(STORAGE_KEYS.stepResults, {}));
   const [progress,   setProgress]   = useState(IDLE_PROGRESS);
-  const [result,     setResult]     = useState(null);
+  const [result,     setResult]     = useState(() => readStoredJson(STORAGE_KEYS.scanResult, null));
   const [error,      setError]      = useState("");
   const [fatalError, setFatalError] = useState("");
 
@@ -417,11 +433,7 @@ function App() {
         } : prev);
       }
 
-      setStepResults(prev => {
-        const next = { ...prev, [stepId]: data };
-        try { sessionStorage.setItem("dga_stepResults", JSON.stringify(next)); } catch {}
-        return next;
-      });
+      setStepResults(prev => ({ ...prev, [stepId]: data }));
       setProgress(prev => ({ ...prev, phase: `Step ${stepId} Complete` }));
     } catch (e) {
       setError(`Step ${stepId} failed: ${e.message}`);
@@ -453,6 +465,38 @@ function App() {
       setIsScanning(false);
     }
     }, [token, config]);
+
+  useEffect(() => {
+    try {
+      if (token) {
+        localStorage.setItem(STORAGE_KEYS.token, token);
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.token);
+      }
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [token]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.stepResults, JSON.stringify(stepResults || {}));
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [stepResults]);
+
+  useEffect(() => {
+    try {
+      if (result) {
+        localStorage.setItem(STORAGE_KEYS.scanResult, JSON.stringify(result));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.scanResult);
+      }
+    } catch {
+      // Ignore storage errors.
+    }
+  }, [result]);
 
   useEffect(() => {
     function onWindowError(event) {

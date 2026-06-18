@@ -139,6 +139,7 @@ export function exportSiteExposureCsv(siteExposureBySite) {
     AnyoneLinks: s.anyoneLinks ?? 0,
     OrganizationLinks: s.organizationLinks ?? 0,
     EveryoneOrAllUsersGrants: s.everyoneAllUsersGrants ?? 0,
+    MatchedGroupNames: (s.matchedPrincipalNames || []).join("; "),
     ResourcesWithAnyoneLinks: s.resourcesWithAnyoneLinks ?? 0,
     ResourcesWithEveryoneOrAllUsers: s.resourcesWithEveryoneAllUsers ?? 0,
     PermissionsChecked: s.permissionsChecked ?? 0
