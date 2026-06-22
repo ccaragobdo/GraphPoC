@@ -125,7 +125,7 @@ function ConfigPanel({ config, onChange, disabled, onStart, hasToken }) {
 
   return html`
     <section className="card panel">
-      <h2>Step 2 — Configure &amp; Start Scan</h2>
+      <h2>Step 2 — Configure & Start Scan</h2>
       <div className="config-grid">
         <label>
           <input type="checkbox" checked=${config.unlimitedSites} disabled=${disabled}
